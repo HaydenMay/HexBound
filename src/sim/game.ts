@@ -19,6 +19,7 @@ import type {
 export type GamePhase = 'building' | 'active' | 'won' | 'lost'
 
 export interface LightningPayload {
+  color: number
   points: WorldPos[]
 }
 
@@ -28,9 +29,17 @@ export interface TeleportPayload {
   to: WorldPos
 }
 
+export interface NovaPayload {
+  pos: WorldPos
+  radius: number
+  color: number
+}
+
 export type UpgradeResult = 'ok' | 'unaffordable' | 'maxed' | 'invalid'
 
 const ALLY_CAP = 30
+const CHARM_DPS = 8
+const CHARM_FIGHT_RADIUS = 1.8
 
 function hexKey(hex: HexCoord): string {
   return `${hex.col},${hex.row}`
@@ -180,15 +189,27 @@ export class Game {
     }
 
     this.applyCauldrons(dt)
+    this.applyIdols(dt)
     this.applyOrbs()
     this.applyGates(dt)
     this.applyTotems(dt)
+    this.applyWells(dt)
     this.applyAllies(dt)
     this.applyStructureAttacks(dt)
 
     const breaches: Enemy[] = []
     for (const e of this.enemies) {
       e.tickEffects(dt)
+      if (e.charmedBy) {
+        e.charmRemaining -= dt
+        if (e.charmRemaining <= 0) {
+          e.charmedBy = null
+        } else {
+          const foe = this.nearestFoeFor(e)
+          if (foe) foe.hp -= CHARM_DPS * dt
+          continue
+        }
+      }
       if (e.hp > 0 && !e.attackingHex) {
         const result = e.advance(dt, c => this.field.nextStep(c))
         if (result === 'arrived') breaches.push(e)
@@ -219,6 +240,87 @@ export class Game {
     }
   }
 
+  private nearestFoeFor(charmed: Enemy): Enemy | null {
+    let best: Enemy | null = null
+    let bd = Infinity
+    for (const e of this.enemies) {
+      if (e === charmed || e.charmedBy || e.hp <= 0) continue
+      const d = hexDistance(charmed.cur, e.cur)
+      if (d <= CHARM_FIGHT_RADIUS && d < bd) {
+        bd = d
+        best = e
+      }
+    }
+    return best
+  }
+
+  private applyIdols(dt: number): void {
+    for (const s of this.structures) {
+      const stats = kindStats(s)
+      if (stats.kind !== 'idol') continue
+      const idol = stats.idol
+      s.cooldown -= dt
+      if (s.cooldown > 0) continue
+      const key = hexKey(s.hex)
+      const owned = this.enemies.filter(e => e.charmedBy === key).length
+      if (owned >= idol.concurrent) continue
+      const radius = currentTier(s).radius
+      const target = this.enemies
+        .filter(e => !e.charmedBy && hexDistance(s.hex, e.cur) <= radius)
+        .sort((a, b) => hexDistance(s.hex, a.cur) - hexDistance(s.hex, b.cur))[0]
+      if (!target) continue
+      target.charmedBy = key
+      target.charmRemaining = idol.duration
+      target.poisonStacks = 0
+      target.poisonRemaining = 0
+      target.attackingHex = null
+      s.cooldown = idol.cooldown
+      const to = lerpHexToWorld(target.cur, target.next, target.t)
+      this.events.emit<LightningPayload>('lightning', {
+        color: 0xc08aff,
+        points: [hexToWorld(s.hex), to]
+      })
+      this.events.emit('enemyCharmed', target)
+    }
+  }
+
+  private applyWells(dt: number): void {
+    for (const s of this.structures) {
+      if (kindStats(s).kind !== 'well') continue
+      s.cooldown -= dt
+    }
+  }
+
+  sacrifice(inst: StructureInstance): boolean {
+    const stats = kindStats(inst)
+    if (stats.kind !== 'well') return false
+    if (inst.cooldown > 0) return false
+    if (!this.allies.length) return false
+    let nearest = this.allies[0]
+    let bd = Infinity
+    for (const a of this.allies) {
+      const d = hexDistance(inst.hex, a.hex)
+      if (d < bd) {
+        bd = d
+        nearest = a
+      }
+    }
+    this.allies = this.allies.filter(a => a !== nearest)
+    const well = stats.well
+    inst.cooldown = well.sacrificeCooldown
+    for (const e of this.enemies) {
+      if (!e.charmedBy && hexDistance(inst.hex, e.cur) <= well.sacrificeRadius) {
+        e.hp -= well.sacrificeDamage
+      }
+    }
+    this.events.emit<NovaPayload>('nova', {
+      pos: hexToWorld(inst.hex),
+      radius: well.sacrificeRadius,
+      color: 0x8ad8ff
+    })
+    return true
+  }
+
   private applyCauldrons(dt: number): void {
     for (const e of this.enemies) e.inAura = false
     const cauldron = this.firstCauldronStats()
@@ -227,7 +329,7 @@ export class Game {
       if (kindStats(s).kind !== 'cauldron') continue
       const radius = currentTier(s).radius
       for (const e of this.enemies) {
-        if (!e.inAura && hexDistance(s.hex, e.cur) <= radius) e.inAura = true
+        if (!e.inAura && !e.charmedBy && hexDistance(s.hex, e.cur) <= radius) e.inAura = true
       }
     }
     for (const e of this.enemies) {
@@ -296,7 +398,7 @@ export class Game {
       s.cooldown -= dt
       if (s.cooldown > 0) continue
       const inRange = this.enemies
-        .filter(e => e.history.length > 0 && hexDistance(s.hex, e.cur) <= currentTier(s).radius)
+        .filter(e => e.history.length > 0 && !e.charmedBy && hexDistance(s.hex, e.cur) <= currentTier(s).radius)
         .sort((a, b) => hexDistance(s.hex, a.cur) - hexDistance(s.hex, b.cur))
       const target = inRange[0]
       if (!target) continue
@@ -321,7 +423,7 @@ export class Game {
       if (s.cooldown > 0) continue
       const range = currentTier(s).radius
       const inRange = this.enemies
-        .filter(e => hexDistance(s.hex, e.cur) <= range)
+        .filter(e => !e.charmedBy && hexDistance(s.hex, e.cur) <= range)
         .sort((a, b) => hexDistance(s.hex, a.cur) - hexDistance(s.hex, b.cur))
       if (!inRange.length) continue
       const hit: Enemy[] = [inRange[0]]
@@ -345,23 +447,33 @@ export class Game {
       s.cooldown = totem.cooldown
       const points: WorldPos[] = [hexToWorld(s.hex)]
       for (const e of hit) points.push(lerpHexToWorld(e.cur, e.next, e.t))
-      this.events.emit<LightningPayload>('lightning', { points })
+      this.events.emit<LightningPayload>('lightning', { color: 0xcfeaff, points })
     }
   }
 
   private applyAllies(dt: number): void {
     for (const a of this.allies) {
       a.remaining -= dt
+      a.attackCooldown -= dt
       let best: Enemy | null = null
       let bd = Infinity
       for (const e of this.enemies) {
+        if (e.charmedBy) continue
         const d = hexDistance(a.hex, e.cur)
         if (d <= a.attackRadius && d < bd) {
           bd = d
           best = e
         }
       }
-      if (best) best.hp -= a.dps * dt
+      if (!best) continue
+      best.hp -= a.dps * dt
+      if (a.attackCooldown <= 0) {
+        a.attackCooldown = 0.4
+        this.events.emit<LightningPayload>('lightning', {
+          color: 0x76e8b0,
+          points: [hexToWorld(a.hex), lerpHexToWorld(best.cur, best.next, best.t)]
+        })
+      }
     }
     this.allies = this.allies.filter(a => a.remaining > 0)
   }
@@ -369,7 +481,7 @@ export class Game {
   private applyStructureAttacks(dt: number): void {
     for (const e of this.enemies) {
       const sd = e.def.structureDamage ?? 0
-      if (!sd || e.hp <= 0) {
+      if (!sd || e.hp <= 0 || e.charmedBy) {
         e.attackingHex = null
         continue
       }
@@ -386,14 +498,38 @@ export class Game {
         }
       }
       e.attackingHex = best ? { ...best.hex } : null
-      if (best) {
-        best.hp -= sd * dt
-        if (best.hp <= 0) this.destroyStructure(best)
+      if (!best) continue
+      best.hp -= sd * dt
+
+      e.vfxClock += dt
+      if (e.vfxClock >= 0.5) {
+        e.vfxClock = 0
+        this.events.emit<LightningPayload>('lightning', {
+          color: 0xff6a5a,
+          points: [lerpHexToWorld(e.cur, e.next, e.t), hexToWorld(best.hex)]
+        })
+      }
+
+      if (best.hp <= 0) {
+        if (!best.destroyed) {
+          this.destroyStructure(best)
+        }
+        continue
+      }
+
+      const stats = kindStats(best)
+      if (stats.kind === 'mirror' && Math.random() < stats.mirror.reflectChance) {
+        e.hp -= sd * stats.mirror.reflectFactor
+        this.events.emit<LightningPayload>('lightning', {
+          color: 0xf0f0ff,
+          points: [hexToWorld(best.hex), lerpHexToWorld(e.cur, e.next, e.t)]
+        })
       }
     }
   }
 
   private destroyStructure(s: StructureInstance): void {
+    s.destroyed = true
     const i = this.structures.indexOf(s)
     if (i >= 0) this.structures.splice(i, 1)
     this.byHex.delete(hexKey(s.hex))
@@ -407,6 +543,7 @@ export class Game {
     for (const e of this.enemies) {
       if (e.hp <= 0) {
         this.essence += e.def.reward
+        this.applyWellDeaths(e.cur)
         this.tryRaiseAlly(e.cur)
         this.events.emit('enemyDied', e)
         continue
@@ -419,6 +556,16 @@ export class Game {
       survivors.push(e)
     }
     this.enemies = survivors
+  }
+
+  private applyWellDeaths(hex: HexCoord): void {
+    for (const s of this.structures) {
+      const stats = kindStats(s)
+      if (stats.kind !== 'well') continue
+      if (hexDistance(s.hex, hex) <= currentTier(s).radius) {
+        this.essence += stats.well.essencePerDeath
+      }
+    }
   }
 
   private tryRaiseAlly(hex: HexCoord): void {

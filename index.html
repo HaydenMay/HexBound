@@ -422,6 +422,90 @@
         font-size: 16px;
         font-weight: 800;
       }
+      #menu {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(ellipse at center, #1c1430 0%, #0d0a16 70%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        z-index: 20;
+        padding: 20px;
+      }
+      #menu.hidden {
+        display: none;
+      }
+      #menu h1 {
+        font-size: 52px;
+        letter-spacing: 0.14em;
+        margin: 0;
+        color: var(--accent);
+        text-shadow: 0 0 30px rgba(178, 107, 255, 0.5);
+      }
+      #menu .menu-sub {
+        color: var(--muted);
+        margin-top: -14px;
+        font-size: 14px;
+      }
+      #level-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: min(420px, 92vw);
+      }
+      .level-btn {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        grid-template-rows: auto auto;
+        column-gap: 12px;
+        text-align: left;
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: var(--text);
+        transition: border-color 0.15s, transform 0.08s;
+      }
+      .level-btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        transform: translateX(3px);
+      }
+      .level-btn.locked {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .lv-num {
+        grid-row: span 2;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: rgba(178, 107, 255, 0.14);
+        color: var(--accent);
+        font-weight: 800;
+        font-size: 18px;
+      }
+      .lv-name {
+        font-weight: 800;
+        font-size: 15px;
+        letter-spacing: 0.04em;
+      }
+      .lv-blurb {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      #reset-save {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 12px;
+        cursor: pointer;
+        text-decoration: underline;
+        pointer-events: auto;
+      }
       @media (max-width: 720px) {
         .card {
           width: 116px;
@@ -504,6 +588,12 @@
       </div>
     </div>
     <div id="labels"></div>
+    <div id="menu">
+      <h1>HEXBOUND</h1>
+      <p class="menu-sub">They march to end your ritual. You decide the road they take.</p>
+      <div id="level-list"></div>
+      <button id="reset-save">reset progress</button>
+    </div>
     <div id="inspect" class="hidden">
       <button id="inspect-close">&times;</button>
       <h3 id="inspect-title"></h3>

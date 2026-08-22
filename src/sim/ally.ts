@@ -5,6 +5,7 @@ export class Ally {
   readonly id: number
   remaining: number
   ownerId = ''
+  attackCooldown = 0
 
   constructor(
     public dps: number,

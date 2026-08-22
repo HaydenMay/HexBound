@@ -219,6 +219,111 @@ export const STRUCTURE_DEFS: Record<string, StructureDef> = {
         radius: 6.5
       }
     ]
+  },
+  whisperingidol: {
+    id: 'whisperingidol',
+    name: 'Whispering Idol',
+    blurb: 'Turns a foe against its own kin.',
+    cost: 55,
+    blocksPath: true,
+    hp: 80,
+    color: 0xc08aff,
+    tiers: [
+      {
+        kind: 'idol',
+        label: 'Soft Whisper',
+        desc: 'Periodically charms one foe into fighting for you.',
+        cost: 0,
+        radius: 2.5,
+        idol: { duration: 5, cooldown: 8, concurrent: 1 }
+      },
+      {
+        kind: 'idol',
+        label: 'Insistent Voice',
+        desc: 'Longer charms, sooner.',
+        cost: 50,
+        radius: 3,
+        idol: { duration: 7, cooldown: 6.5, concurrent: 1 }
+      },
+      {
+        kind: 'idol',
+        label: 'Choir of Whispers',
+        desc: 'Two foes may turn at once.',
+        cost: 85,
+        radius: 3.5,
+        idol: { duration: 9, cooldown: 5, concurrent: 2 }
+      }
+    ]
+  },
+  moonwell: {
+    id: 'moonwell',
+    name: 'Moonwell',
+    blurb: 'Feeds on deaths nearby. Can detonate a sprite.',
+    cost: 60,
+    blocksPath: false,
+    hp: 75,
+    color: 0x8ad8ff,
+    tiers: [
+      {
+        kind: 'well',
+        label: 'Moonlit Pool',
+        desc: 'Grants essence for each foe who dies near it. Sacrifice a sprite for a burst.',
+        cost: 0,
+        radius: 2.5,
+        well: { essencePerDeath: 3, sacrificeDamage: 40, sacrificeRadius: 2.5, sacrificeCooldown: 12 }
+      },
+      {
+        kind: 'well',
+        label: 'Waxing Well',
+        desc: 'Richer essence, harder bursts.',
+        cost: 45,
+        radius: 3,
+        well: { essencePerDeath: 4, sacrificeDamage: 55, sacrificeRadius: 3, sacrificeCooldown: 10 }
+      },
+      {
+        kind: 'well',
+        label: 'Full Moon Rite',
+        desc: 'The pool remembers everything.',
+        cost: 70,
+        radius: 3.5,
+        well: { essencePerDeath: 6, sacrificeDamage: 75, sacrificeRadius: 3.5, sacrificeCooldown: 8 }
+      }
+    ]
+  },
+  spellmirror: {
+    id: 'spellmirror',
+    name: 'Spell Mirror',
+    blurb: 'Returns aggression to the aggressor.',
+    cost: 45,
+    blocksPath: true,
+    hp: 120,
+    color: 0xf0f0ff,
+    tiers: [
+      {
+        kind: 'mirror',
+        label: 'Silvered Glass',
+        desc: 'Chance to reflect structure attacks back onto the attacker.',
+        cost: 0,
+        radius: 1,
+        mirror: { reflectChance: 0.35, reflectFactor: 1 }
+      },
+      {
+        kind: 'mirror',
+        label: 'Warded Glass',
+        desc: 'Reflects more often, and harder.',
+        cost: 35,
+        radius: 1,
+        mirror: { reflectChance: 0.5, reflectFactor: 1.25 }
+      },
+      {
+        kind: 'mirror',
+        label: 'Kaleidoscope',
+        desc: 'Few survive striking it.',
+        cost: 60,
+        radius: 1,
+        mirror: { reflectChance: 0.65, reflectFactor: 1.5 }
+      }
+    ]
   }
 }
 
@@ -228,5 +333,8 @@ export const STRUCTURE_ORDER = [
   'witchgate',
   'thorngrove',
   'mushroomring',
-  'gazingorb'
+  'gazingorb',
+  'whisperingidol',
+  'moonwell',
+  'spellmirror'
 ]

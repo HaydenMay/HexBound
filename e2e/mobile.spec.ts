@@ -11,6 +11,11 @@ interface GameHook {
 
 async function boot(page: Page): Promise<void> {
   await page.goto('/HexBound/')
+  const menu = page.locator('#menu')
+  if (await menu.isVisible()) {
+    await page.locator('#level-list .level-btn:not(.locked)').first().tap()
+  }
+  await expect(menu).toBeHidden()
   await expect(page.locator('#game')).toBeVisible()
 }
 
@@ -30,7 +35,7 @@ test('boots with zero console or page errors and full HUD visible', async ({ pag
   await boot(page)
 
   await expect(page.locator('#overlay')).toBeHidden()
-  await expect(page.locator('#palette .card')).toHaveCount(6)
+  await expect(page.locator('#palette .card')).toHaveCount(9)
   await expect(page.locator('#startwave')).toBeInViewport()
   await expect(page.locator('#pause')).toBeInViewport()
 

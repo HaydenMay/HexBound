@@ -61,6 +61,24 @@ export interface RingStats {
   maxActive: number
 }
 
+export interface IdolStats {
+  duration: number
+  cooldown: number
+  concurrent: number
+}
+
+export interface WellStats {
+  essencePerDeath: number
+  sacrificeDamage: number
+  sacrificeRadius: number
+  sacrificeCooldown: number
+}
+
+export interface MirrorStats {
+  reflectChance: number
+  reflectFactor: number
+}
+
 export type KindStats = {
   kind: 'cauldron'
   cauldron: CauldronStats
@@ -76,6 +94,15 @@ export type KindStats = {
 } | {
   kind: 'ring'
   ring: RingStats
+} | {
+  kind: 'idol'
+  idol: IdolStats
+} | {
+  kind: 'well'
+  well: WellStats
+} | {
+  kind: 'mirror'
+  mirror: MirrorStats
 } | {
   kind: 'orb'
 }

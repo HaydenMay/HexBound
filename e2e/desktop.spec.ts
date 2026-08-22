@@ -5,7 +5,12 @@ test('desktop boots, places a tower, and runs a wave', async ({ page }) => {
   page.on('pageerror', e => errors.push(String(e)))
   await page.goto('/HexBound/')
 
-  await expect(page.locator('#palette .card')).toHaveCount(6)
+  const menu = page.locator('#menu')
+  await expect(menu).toBeVisible()
+  await page.locator('#level-list .level-btn:not(.locked)').first().click()
+  await expect(menu).toBeHidden()
+
+  await expect(page.locator('#palette .card')).toHaveCount(9)
   await expect(page.locator('#overlay')).toBeHidden()
 
   await page.locator('#palette .card').first().click()
@@ -31,6 +36,11 @@ test('desktop boots, places a tower, and runs a wave', async ({ page }) => {
 
 test('speed and pause controls respond', async ({ page }) => {
   await page.goto('/HexBound/')
+  const menu = page.locator('#menu')
+  await expect(menu).toBeVisible()
+  await page.locator('#level-list .level-btn:not(.locked)').first().click()
+  await expect(menu).toBeHidden()
+
   const speed = page.locator('#speed')
   await speed.click()
   await expect(speed).toHaveText('2x')

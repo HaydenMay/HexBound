@@ -1,5 +1,5 @@
 import { Game } from '../sim/game'
-import type { StructureInstance } from '../sim/structures'
+import { kindStats, type StructureInstance } from '../sim/structures'
 import type { PlaceError } from '../sim/types'
 import { STRUCTURE_DEFS, STRUCTURE_ORDER } from '../data/structures'
 import { ENEMY_DEFS } from '../data/enemies'
@@ -102,6 +102,7 @@ export class Hud {
     game.events.on('enemyBreached', () => this.flashVignette())
     game.events.on<StructureInstance>('structureDestroyed', s => {
       if (this.selectedStructure === s) this.showStructure(null)
+      this.showBanner(`Your ${s.def.name} was shattered!`, true)
     })
     game.events.on('won', () => this.showEnd(true))
     game.events.on('lost', () => this.showEnd(false))
@@ -144,6 +145,7 @@ export class Hud {
     const tier = inst.def.tiers[inst.tierIndex]
     const fork = inst.forkId ? tier.forks?.find(f => f.id === inst.forkId) : null
     const shown = fork ?? tier
+    const stats = kindStats(inst)
     const key = `${inst.hex.col},${inst.hex.row}:${inst.tierIndex}:${inst.forkId ?? ''}`
     if (key !== this.inspectKey) {
       this.inspectKey = key
@@ -169,11 +171,19 @@ export class Hud {
       } else {
         buttons = `<div class="upgrade-max">Fully empowered</div>`
       }
+      let sacrificeBlock = ''
+      if (stats.kind === 'well') {
+        sacrificeBlock = `<button class="upgrade-btn" id="sacrifice-btn">
+          <span class="up-label">Sacrifice Sprite</span>
+          <span class="up-desc">${stats.well.sacrificeDamage} burst around the well</span>
+          <span class="up-cost" id="sacrifice-state"></span>
+        </button>`
+      }
       this.inspectBodyEl.innerHTML = `
         <div class="inspect-tier">${shown.desc}</div>
         <div class="inspect-hp">Structure integrity: <span id="inspect-hp-val"></span></div>
-        <div class="upgrade-list">${buttons}</div>`
-      this.inspectBodyEl.querySelectorAll<HTMLButtonElement>('.upgrade-btn').forEach(btn => {
+        <div class="upgrade-list">${buttons}${sacrificeBlock}</div>`
+      this.inspectBodyEl.querySelectorAll<HTMLButtonElement>('.upgrade-btn[data-fork]').forEach(btn => {
         btn.addEventListener('click', () => {
           if (!this.selectedStructure) return
           const res = this.game.upgrade(this.selectedStructure, btn.dataset.fork || undefined)
@@ -181,12 +191,29 @@ export class Hud {
           if (res === 'ok') this.renderInspect()
         })
       })
+      this.inspectBodyEl.querySelector('#sacrifice-btn')?.addEventListener('click', () => {
+        if (!this.selectedStructure) return
+        if (!this.game.sacrifice(this.selectedStructure)) this.showBanner('The well is not ready', true)
+      })
     }
     const hpVal = this.require('#inspect-hp-val')
     hpVal.textContent = `${Math.max(Math.ceil(inst.hp), 0)} / ${inst.maxHp}`
-    this.inspectBodyEl.querySelectorAll<HTMLButtonElement>('.upgrade-btn').forEach(btn => {
+    this.inspectBodyEl.querySelectorAll<HTMLButtonElement>('.upgrade-btn[data-fork]').forEach(btn => {
       btn.disabled = this.game.essence < Number(btn.dataset.cost ?? 0)
     })
+    const sacBtn = this.inspectBodyEl.querySelector<HTMLButtonElement>('#sacrifice-btn')
+    if (sacBtn && stats.kind === 'well') {
+      const ready = inst.cooldown <= 0 && this.game.allies.length > 0
+      sacBtn.disabled = !ready
+      const state = sacBtn.querySelector('#sacrifice-state')
+      if (state) {
+        state.textContent = !this.game.allies.length
+          ? 'no sprites bound'
+          : inst.cooldown > 0
+            ? `recharging ${Math.ceil(inst.cooldown)}s`
+            : `${this.game.allies.length} sprite(s) ready`
+      }
+    }
   }
 
   warn(reason: PlaceError): void {

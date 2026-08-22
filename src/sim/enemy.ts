@@ -16,6 +16,9 @@ export class Enemy {
   revealed = false
   history: HexCoord[] = []
   attackingHex: HexCoord | null = null
+  charmedBy: string | null = null
+  charmRemaining = 0
+  vfxClock = 0
 
   constructor(readonly def: EnemyDef, spawn: HexCoord) {
     this.id = Enemy.nextId++

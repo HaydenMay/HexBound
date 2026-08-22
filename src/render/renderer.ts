@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Game, type LightningPayload, type TeleportPayload } from '../sim/game'
+import { Game, type LightningPayload, type NovaPayload, type TeleportPayload } from '../sim/game'
 import { currentTier, type StructureInstance } from '../sim/structures'
 import { HEX_SIZE, hexToWorld, lerpHexToWorld, worldToHex, type HexCoord, type WorldPos } from '../sim/hex'
 import type { KindStats } from '../sim/types'
@@ -33,6 +33,7 @@ export class Renderer {
   private enemyMesh: THREE.InstancedMesh
   private allyMesh: THREE.InstancedMesh
   private revealMesh: THREE.InstancedMesh
+  private charmMesh!: THREE.InstancedMesh
   private structureGroups = new Map<string, THREE.Group>()
   private hpBars = new Map<string, { bg: THREE.Mesh; fill: THREE.Mesh }>()
   private selected: StructureInstance | null = null
@@ -48,7 +49,7 @@ export class Renderer {
   private ghostDiscMat: THREE.MeshBasicMaterial | null = null
 
   private lightningPool: { line: THREE.Line; life: number }[] = []
-  private flashPool: { ring: THREE.Mesh; life: number }[] = []
+  private flashPool: { ring: THREE.Mesh; life: number; maxLife: number }[] = []
   private poolIndex = 0
   private time = 0
 
@@ -72,6 +73,7 @@ export class Renderer {
 
     const ritualWorld = hexToWorld(game.grid.ritual)
     this.target = new THREE.Vector3(ritualWorld.x, 0, ritualWorld.z)
+    this.dist = THREE.MathUtils.clamp(game.grid.rows * 1.45, 12, 22)
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200)
 
     const hemi = new THREE.HemisphereLight(0x9a8ac8, 0x14101f, 1.0)
@@ -125,6 +127,16 @@ export class Renderer {
     this.revealMesh.count = 0
     this.scene.add(this.revealMesh)
 
+    const charmGeo = new THREE.RingGeometry(0.34, 0.46, 20)
+    charmGeo.rotateX(-Math.PI / 2)
+    this.charmMesh = new THREE.InstancedMesh(
+      charmGeo,
+      new THREE.MeshBasicMaterial({ color: 0xc08aff, transparent: true, opacity: 0.9, depthWrite: false }),
+      300
+    )
+    this.charmMesh.count = 0
+    this.scene.add(this.charmMesh)
+
     this.buildRitual()
     this.buildEntrance()
 
@@ -159,7 +171,7 @@ export class Renderer {
       ring.position.y = 0.2
       ring.visible = false
       this.scene.add(ring)
-      this.flashPool.push({ ring, life: 0 })
+      this.flashPool.push({ ring, life: 0, maxLife: 0.45 })
     }
 
     for (const s of game.structures) this.addStructureMesh(s)
@@ -190,6 +202,7 @@ export class Renderer {
     })
     game.events.on<LightningPayload>('lightning', p => this.spawnLightning(p))
     game.events.on<TeleportPayload>('teleport', p => this.spawnFlash(p.from, p.to))
+    game.events.on<NovaPayload>('nova', p => this.spawnNova(p))
 
     this.bindInput()
     window.addEventListener('resize', () => this.resize())
@@ -258,6 +271,41 @@ export class Renderer {
       const core = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), new THREE.MeshBasicMaterial({ color: 0x6a3aa0, transparent: true, opacity: 0.55, side: THREE.DoubleSide }))
       core.position.y = 0.85
       g.add(base, portal, core)
+    } else if (kind === 'idol') {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 0.24, 8), std(0x3a2f52))
+      base.position.y = 0.12
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.72, 6), std(0x3a2f52))
+      body.position.y = 0.6
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), std(0x2a1a3e, 0xc08aff, 1.4))
+      head.position.y = 1.02
+      g.add(base, body, head)
+    } else if (kind === 'well') {
+      const rimGeo = new THREE.TorusGeometry(0.55, 0.09, 8, 28)
+      rimGeo.rotateX(-Math.PI / 2)
+      const rim = new THREE.Mesh(rimGeo, std(0x3a2f52, 0x8ad8ff, 1.2))
+      rim.position.y = 0.18
+      const water = new THREE.Mesh(
+        new THREE.CircleGeometry(0.5, 24),
+        new THREE.MeshBasicMaterial({ color: 0x1a3a55 })
+      )
+      water.rotation.x = -Math.PI / 2
+      water.position.y = 0.12
+      const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.5, 6), std(0x3a2f52))
+      post1.position.set(-0.42, 0.25, -0.3)
+      const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.5, 6), std(0x3a2f52))
+      post2.position.set(0.42, 0.25, -0.3)
+      g.add(rim, water, post1, post2)
+    } else if (kind === 'mirror') {
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.2, 8), std(0x3a2f52))
+      stand.position.y = 0.1
+      const frame = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 8, 28), std(0x2a2a3e, 0xf0f0ff, 1.3))
+      frame.position.y = 0.85
+      const glass = new THREE.Mesh(
+        new THREE.CircleGeometry(0.44, 24),
+        new THREE.MeshBasicMaterial({ color: 0xcfd8ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+      )
+      glass.position.y = 0.85
+      g.add(stand, frame, glass)
     } else if (kind === 'ring') {
       for (let i = 0; i < 5; i++) {
         const angle = (i / 5) * Math.PI * 2
@@ -440,7 +488,19 @@ export class Renderer {
   private spawnLightning(p: LightningPayload): void {
     const slot = this.lightningPool[this.poolIndex++ % this.lightningPool.length]
     slot.line.geometry.setFromPoints(p.points.map(pt => new THREE.Vector3(pt.x, 0.7, pt.z)))
+    ;(slot.line.material as THREE.LineBasicMaterial).color.setHex(p.color)
     slot.life = 0.14
+  }
+
+  private spawnNova(p: NovaPayload): void {
+    const slot = this.flashPool[this.poolIndex++ % this.flashPool.length]
+    slot.ring.position.set(p.pos.x, 0.25, p.pos.z)
+    slot.ring.visible = true
+    slot.ring.scale.setScalar(0.4)
+    const mat = slot.ring.material as THREE.MeshBasicMaterial
+    mat.color.setHex(p.color)
+    mat.opacity = 0.95
+    slot.life = 1
   }
 
   private spawnFlash(from: WorldPos, to: WorldPos): void {
@@ -451,6 +511,7 @@ export class Renderer {
       slot.ring.scale.setScalar(0.4)
       ;(slot.ring.material as THREE.MeshBasicMaterial).opacity = 0.9
       slot.life = 0.45
+      slot.maxLife = 0.45
     }
   }
 
@@ -506,7 +567,7 @@ export class Renderer {
         if (this.activePointers.size >= 2) {
           const nd = this.currentPinchDistance()
           if (nd > 10 && this.pinchDist > 0) {
-            this.dist = THREE.MathUtils.clamp(this.dist * (this.pinchDist / nd), 13, 36)
+          this.dist = THREE.MathUtils.clamp(this.dist * (this.pinchDist / nd), 9, 36)
             this.pinchDist = nd
           }
           return
@@ -549,7 +610,7 @@ export class Renderer {
       'wheel',
       e => {
         e.preventDefault()
-        this.dist = THREE.MathUtils.clamp(this.dist * (1 + e.deltaY * 0.0009), 13, 36)
+        this.dist = THREE.MathUtils.clamp(this.dist * (1 + e.deltaY * 0.0009), 9, 36)
       },
       { passive: false }
     )
@@ -643,6 +704,17 @@ export class Renderer {
     this.revealMesh.count = rn
     this.revealMesh.instanceMatrix.needsUpdate = true
 
+    let cn = 0
+    for (let i = 0; i < enemies.length && cn < 300; i++) {
+      const e = enemies[i]
+      if (!e.charmedBy) continue
+      const w = lerpHexToWorld(e.cur, e.next, e.t)
+      m.compose(new THREE.Vector3(w.x, 0.1, w.z), q.identity(), scaleVec.set(1, 1, 1))
+      this.charmMesh.setMatrixAt(cn++, m)
+    }
+    this.charmMesh.count = cn
+    this.charmMesh.instanceMatrix.needsUpdate = true
+
     const allies = this.game.allies
     for (let i = 0; i < allies.length && i < 40; i++) {
       const a = allies[i]
@@ -697,8 +769,8 @@ export class Renderer {
     for (const slot of this.flashPool) {
       if (slot.life > 0) {
         slot.life -= dt
-        const t = 1 - Math.max(slot.life / 0.45, 0)
-        slot.ring.scale.setScalar(0.4 + t * 1.4)
+        const t = 1 - Math.max(slot.life / slot.maxLife, 0)
+        slot.ring.scale.setScalar(0.4 + t * 1.8)
         ;(slot.ring.material as THREE.MeshBasicMaterial).opacity = (1 - t) * 0.9
         if (slot.life <= 0) slot.ring.visible = false
       }

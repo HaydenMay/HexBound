@@ -9,6 +9,7 @@ export interface StructureInstance {
   maxHp: number
   tierIndex: number
   forkId: string | null
+  destroyed: boolean
 }
 
 export function createStructure(def: StructureDef, hex: HexCoord): StructureInstance {
@@ -21,7 +22,8 @@ export function createStructure(def: StructureDef, hex: HexCoord): StructureInst
     hp: def.hp,
     maxHp: def.hp,
     tierIndex: 0,
-    forkId: null
+    forkId: null,
+    destroyed: false
   }
 }
 
@@ -41,5 +43,8 @@ export function kindStats(inst: StructureInstance): KindStats {
   if (t.kind === 'grove') return { kind: 'grove', grove: t.grove }
   if (t.kind === 'gate') return { kind: 'gate', gate: t.gate }
   if (t.kind === 'ring') return { kind: 'ring', ring: t.ring }
+  if (t.kind === 'idol') return { kind: 'idol', idol: t.idol }
+  if (t.kind === 'well') return { kind: 'well', well: t.well }
+  if (t.kind === 'mirror') return { kind: 'mirror', mirror: t.mirror }
   return { kind: 'orb' }
 }
