@@ -8,7 +8,7 @@ export function createLevelOneConfig(): GameConfig {
     entrance: { col: 0, row: 9 },
     ritual: { col: 13, row: 9 },
     waves: WAVES,
-    startEssence: 130,
+    startEssence: 160,
     startStability: 10
   }
 }

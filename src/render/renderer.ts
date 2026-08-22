@@ -1,18 +1,18 @@
 import * as THREE from 'three'
-import { Game, type LightningPayload } from '../sim/game'
-import type { StructureInstance } from '../sim/structures'
-import { HEX_SIZE, hexToWorld, lerpHexToWorld, worldToHex, type HexCoord } from '../sim/hex'
-import type { StructureDef } from '../sim/types'
+import { Game, type LightningPayload, type TeleportPayload } from '../sim/game'
+import { currentTier, type StructureInstance } from '../sim/structures'
+import { HEX_SIZE, hexToWorld, lerpHexToWorld, worldToHex, type HexCoord, type WorldPos } from '../sim/hex'
+import type { KindStats } from '../sim/types'
 import { STRUCTURE_DEFS } from '../data/structures'
 
 const VALID_COLOR = 0x7fe3a0
 const INVALID_COLOR = 0xff5a5a
 const POISON_COLOR = 0x76c958
 
-function structureRadius(def: StructureDef): number {
-  if (def.kind === 'totem' && def.totem) return def.totem.range
-  if (def.kind === 'grove' && def.grove) return def.grove.penaltyRadius
-  return def.auraRadius
+export interface ScreenPoint {
+  x: number
+  y: number
+  visible: boolean
 }
 
 export class Renderer {
@@ -31,7 +31,12 @@ export class Renderer {
   private tiles: THREE.InstancedMesh
   private arrows: THREE.InstancedMesh
   private enemyMesh: THREE.InstancedMesh
+  private allyMesh: THREE.InstancedMesh
+  private revealMesh: THREE.InstancedMesh
   private structureGroups = new Map<string, THREE.Group>()
+  private hpBars = new Map<string, { bg: THREE.Mesh; fill: THREE.Mesh }>()
+  private selected: StructureInstance | null = null
+  private selectRing: THREE.Mesh
   private ritualOrb!: THREE.Mesh
   private ritualRing!: THREE.MeshStandardMaterial
 
@@ -43,7 +48,8 @@ export class Renderer {
   private ghostDiscMat: THREE.MeshBasicMaterial | null = null
 
   private lightningPool: { line: THREE.Line; life: number }[] = []
-  private lightningIndex = 0
+  private flashPool: { ring: THREE.Mesh; life: number }[] = []
+  private poolIndex = 0
   private time = 0
 
   private dragging = false
@@ -72,10 +78,7 @@ export class Renderer {
     dir.position.set(12, 22, 8)
     this.scene.add(hemi, dir)
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(80, 48),
-      new THREE.MeshBasicMaterial({ color: 0x120e1c })
-    )
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 48), new THREE.MeshBasicMaterial({ color: 0x120e1c }))
     ground.rotation.x = -Math.PI / 2
     ground.position.y = -0.35
     this.scene.add(ground)
@@ -103,8 +106,37 @@ export class Renderer {
     this.enemyMesh.count = 0
     this.scene.add(this.enemyMesh)
 
+    this.allyMesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.2, 10, 10),
+      new THREE.MeshStandardMaterial({ color: 0x1f3a2c, emissive: 0x76e8b0, emissiveIntensity: 1.6 }),
+      40
+    )
+    this.allyMesh.count = 0
+    this.scene.add(this.allyMesh)
+
+    const revealGeo = new THREE.RingGeometry(0.48, 0.6, 24)
+    revealGeo.rotateX(-Math.PI / 2)
+    this.revealMesh = new THREE.InstancedMesh(
+      revealGeo,
+      new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85, depthWrite: false }),
+      300
+    )
+    this.revealMesh.count = 0
+    this.scene.add(this.revealMesh)
+
     this.buildRitual()
     this.buildEntrance()
+
+    const selectGeo = new THREE.RingGeometry(0.82, 0.95, 6)
+    selectGeo.rotateX(-Math.PI / 2)
+    selectGeo.rotateZ(Math.PI / 6)
+    this.selectRing = new THREE.Mesh(
+      selectGeo,
+      new THREE.MeshBasicMaterial({ color: 0xb26bff, transparent: true, opacity: 0.9, depthWrite: false })
+    )
+    this.selectRing.position.y = 0.16
+    this.selectRing.visible = false
+    this.scene.add(this.selectRing)
 
     for (let i = 0; i < 8; i++) {
       const geo = new THREE.BufferGeometry()
@@ -116,6 +148,21 @@ export class Renderer {
       this.lightningPool.push({ line, life: 0 })
     }
 
+    const flashGeo = new THREE.RingGeometry(0.3, 0.5, 24)
+    flashGeo.rotateX(-Math.PI / 2)
+    for (let i = 0; i < 6; i++) {
+      const ring = new THREE.Mesh(
+        flashGeo,
+        new THREE.MeshBasicMaterial({ color: 0xd8aaff, transparent: true, opacity: 0, depthWrite: false })
+      )
+      ring.position.y = 0.2
+      ring.visible = false
+      this.scene.add(ring)
+      this.flashPool.push({ ring, life: 0 })
+    }
+
+    for (const s of game.structures) this.addStructureMesh(s)
+
     this.rebuildTiles()
     this.rebuildArrows()
 
@@ -124,11 +171,24 @@ export class Renderer {
       this.rebuildTiles()
       this.rebuildArrows()
     })
+    game.events.on<StructureInstance>('structureDestroyed', s => {
+      const key = `${s.hex.col},${s.hex.row}`
+      const group = this.structureGroups.get(key)
+      if (group) {
+        this.scene.remove(group)
+        this.structureGroups.delete(key)
+      }
+      this.hpBars.delete(key)
+      if (this.selected === s) this.setSelected(null)
+      this.rebuildTiles()
+      this.rebuildArrows()
+    })
     game.events.on('fieldChanged', () => {
       this.rebuildArrows()
       this.rebuildTiles()
     })
     game.events.on<LightningPayload>('lightning', p => this.spawnLightning(p))
+    game.events.on<TeleportPayload>('teleport', p => this.spawnFlash(p.from, p.to))
 
     this.bindInput()
     window.addEventListener('resize', () => this.resize())
@@ -146,11 +206,7 @@ export class Renderer {
     pedestal.position.y = 0.25
     const ringGeo = new THREE.TorusGeometry(0.95, 0.07, 8, 40)
     ringGeo.rotateX(-Math.PI / 2)
-    this.ritualRing = new THREE.MeshStandardMaterial({
-      color: 0x2a1a3e,
-      emissive: 0xb26bff,
-      emissiveIntensity: 1.0
-    })
+    this.ritualRing = new THREE.MeshStandardMaterial({ color: 0x2a1a3e, emissive: 0xb26bff, emissiveIntensity: 1.0 })
     const ring = new THREE.Mesh(ringGeo, this.ritualRing)
     ring.position.y = 0.62
     this.ritualOrb = new THREE.Mesh(
@@ -177,22 +233,48 @@ export class Renderer {
     this.scene.add(g)
   }
 
-  private makeStructureMesh(def: StructureDef): THREE.Group {
+  private makeStructureMesh(kind: KindStats['kind']): THREE.Group {
     const g = new THREE.Group()
     const std = (color: number, emissive = 0x000000, ei = 0) =>
       new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: ei })
-    if (def.kind === 'cauldron') {
+    if (kind === 'cauldron') {
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.4, 0.55, 10), std(0x3b2f52))
       pot.position.y = 0.28
       const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.1, 10), std(0x2f4a35, 0x8cff9d, 1.4))
       brew.position.y = 0.58
       g.add(pot, brew)
-    } else if (def.kind === 'totem') {
+    } else if (kind === 'totem') {
       const pole = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 6), std(0x4a3a63))
       pole.position.y = 0.75
       const orb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), std(0x2a3a55, 0x9fd8ff, 1.8))
       orb.position.y = 1.58
       g.add(pole, orb)
+    } else if (kind === 'gate') {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 0.22, 8), std(0x3a2f52))
+      base.position.y = 0.11
+      const portal = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.09, 8, 28), std(0x2a1a3e, 0xd8aaff, 1.8))
+      portal.position.y = 0.85
+      const core = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), new THREE.MeshBasicMaterial({ color: 0x6a3aa0, transparent: true, opacity: 0.55, side: THREE.DoubleSide }))
+      core.position.y = 0.85
+      g.add(base, portal, core)
+    } else if (kind === 'ring') {
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2
+        const mx = Math.cos(angle) * 0.55
+        const mz = Math.sin(angle) * 0.55
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.2, 6), std(0xd8d0c0))
+        stem.position.set(mx, 0.1, mz)
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), std(0x2a4a38, 0x9dffce, 1.5))
+        cap.scale.y = 0.7
+        cap.position.set(mx, 0.24, mz)
+        g.add(stem, cap)
+      }
+    } else if (kind === 'orb') {
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 0.55, 8), std(0x3a2f52))
+      pedestal.position.y = 0.28
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), std(0x4a3a20, 0xffe08a, 2.0))
+      orb.position.y = 0.95
+      g.add(pedestal, orb)
     } else {
       const t1 = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.95, 6), std(0x2f6b45))
       t1.position.set(-0.28, 0.47, 0.12)
@@ -207,10 +289,33 @@ export class Renderer {
 
   private addStructureMesh(s: StructureInstance): void {
     const world = hexToWorld(s.hex)
-    const mesh = this.makeStructureMesh(s.def)
+    const mesh = this.makeStructureMesh(currentTier(s).kind)
     mesh.position.set(world.x, 0, world.z)
-    this.structureGroups.set(`${s.hex.col},${s.hex.row}`, mesh)
+    const key = `${s.hex.col},${s.hex.row}`
+    this.structureGroups.set(key, mesh)
     this.scene.add(mesh)
+
+    const barGeo = new THREE.PlaneGeometry(1.1, 0.12)
+    const bg = new THREE.Mesh(barGeo, new THREE.MeshBasicMaterial({ color: 0x14101f, transparent: true, opacity: 0.85, depthWrite: false }))
+    bg.position.set(world.x, 1.85, world.z)
+    const fillGeo = new THREE.PlaneGeometry(1.04, 0.07)
+    const fill = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({ color: 0x7fe3a0, depthWrite: false }))
+    fill.position.set(world.x, 1.85, world.z + 0.001)
+    bg.visible = false
+    fill.visible = false
+    this.scene.add(bg, fill)
+    this.hpBars.set(key, { bg, fill })
+  }
+
+  setSelected(inst: StructureInstance | null): void {
+    this.selected = inst
+    if (!inst) {
+      this.selectRing.visible = false
+      return
+    }
+    const world = hexToWorld(inst.hex)
+    this.selectRing.position.set(world.x, 0.16, world.z)
+    this.selectRing.visible = true
   }
 
   private rebuildTiles(): void {
@@ -276,7 +381,7 @@ export class Renderer {
       if (this.ghost) this.scene.remove(this.ghost)
       const def = STRUCTURE_DEFS[defId]
       const g = new THREE.Group()
-      const mesh = this.makeStructureMesh(def)
+      const mesh = this.makeStructureMesh(def.tiers[0].kind)
       mesh.traverse(o => {
         const mm = o as THREE.Mesh
         if (mm.isMesh) {
@@ -290,7 +395,7 @@ export class Renderer {
           })
         }
       })
-      const r = structureRadius(def)
+      const r = def.tiers[0].radius
       const ringGeo = new THREE.RingGeometry(Math.max(r - 0.08, 0.1), r, 56)
       ringGeo.rotateX(-Math.PI / 2)
       this.ghostRingMat = new THREE.MeshBasicMaterial({
@@ -332,9 +437,20 @@ export class Renderer {
   }
 
   private spawnLightning(p: LightningPayload): void {
-    const slot = this.lightningPool[this.lightningIndex++ % this.lightningPool.length]
+    const slot = this.lightningPool[this.poolIndex++ % this.lightningPool.length]
     slot.line.geometry.setFromPoints(p.points.map(pt => new THREE.Vector3(pt.x, 0.7, pt.z)))
     slot.life = 0.14
+  }
+
+  private spawnFlash(from: WorldPos, to: WorldPos): void {
+    for (const pos of [from, to]) {
+      const slot = this.flashPool[this.poolIndex++ % this.flashPool.length]
+      slot.ring.position.set(pos.x, 0.2, pos.z)
+      slot.ring.visible = true
+      slot.ring.scale.setScalar(0.4)
+      ;(slot.ring.material as THREE.MeshBasicMaterial).opacity = 0.9
+      slot.life = 0.45
+    }
   }
 
   private pickHex(clientX: number, clientY: number): HexCoord | null {
@@ -428,6 +544,15 @@ export class Renderer {
     this.updateGhost()
   }
 
+  projectPoint(p: WorldPos): ScreenPoint {
+    const v = new THREE.Vector3(p.x, 1.4, p.z).project(this.camera)
+    return {
+      x: (v.x * 0.5 + 0.5) * this.canvas.clientWidth,
+      y: (-v.y * 0.5 + 0.5) * this.canvas.clientHeight,
+      visible: v.z < 1 && v.x > -1.1 && v.x < 1.1 && v.y > -1.1 && v.y < 1.1
+    }
+  }
+
   update(dt: number): void {
     this.time += dt
 
@@ -473,12 +598,56 @@ export class Renderer {
     this.enemyMesh.instanceMatrix.needsUpdate = true
     if (this.enemyMesh.instanceColor) this.enemyMesh.instanceColor.needsUpdate = true
 
+    let rn = 0
+    for (let i = 0; i < enemies.length && rn < 300; i++) {
+      const e = enemies[i]
+      if (!e.def.traitName || !e.revealed) continue
+      const w = lerpHexToWorld(e.cur, e.next, e.t)
+      m.compose(new THREE.Vector3(w.x, 0.1, w.z), q.identity(), scaleVec.set(1, 1, 1))
+      this.revealMesh.setMatrixAt(rn++, m)
+    }
+    this.revealMesh.count = rn
+    this.revealMesh.instanceMatrix.needsUpdate = true
+
+    const allies = this.game.allies
+    for (let i = 0; i < allies.length && i < 40; i++) {
+      const a = allies[i]
+      const w = hexToWorld(a.hex)
+      pos.set(w.x, 0.34 + Math.sin(this.time * 3 + a.id) * 0.06, w.z)
+      scaleVec.setScalar(1)
+      m.compose(pos, q.identity(), scaleVec)
+      this.allyMesh.setMatrixAt(i, m)
+    }
+    this.allyMesh.count = Math.min(allies.length, 40)
+    this.allyMesh.instanceMatrix.needsUpdate = true
+
+    for (const s of this.game.structures) {
+      const key = `${s.hex.col},${s.hex.row}`
+      const bar = this.hpBars.get(key)
+      if (!bar) continue
+      const pct = Math.max(s.hp / s.maxHp, 0)
+      const damaged = s.hp < s.maxHp
+      bar.bg.visible = damaged
+      bar.fill.visible = damaged
+      bar.bg.position.set(hexToWorld(s.hex).x, 1.85, hexToWorld(s.hex).z)
+      bar.fill.scale.x = Math.max(pct, 0.001)
+      bar.fill.position.x = hexToWorld(s.hex).x - (1 - pct) * 0.52
+      bar.fill.position.z = hexToWorld(s.hex).z + 0.001
+      const mat = bar.fill.material as THREE.MeshBasicMaterial
+      mat.color.setHex(pct > 0.5 ? 0x7fe3a0 : pct > 0.25 ? 0xe8c860 : 0xff5a5a)
+    }
+
+    if (this.selected) {
+      const world = hexToWorld(this.selected.hex)
+      this.selectRing.position.set(world.x, 0.16, world.z)
+      this.selectRing.rotation.z += dt * 0.8
+    }
+
     const pulse = 0.6 + (this.game.progress / 100) * 1.6
     this.ritualRing.emissiveIntensity = pulse
     this.ritualOrb.position.y = 1.2 + Math.sin(this.time * 2.2) * 0.12
     this.ritualOrb.rotation.y += dt * 1.5
-    const orbScale = 1 + (this.game.progress / 100) * 0.6
-    this.ritualOrb.scale.setScalar(orbScale)
+    this.ritualOrb.scale.setScalar(1 + (this.game.progress / 100) * 0.6)
 
     if (this.ghostRingMat) {
       this.ghostRingMat.opacity = 0.32 + 0.12 * Math.sin(this.time * 6)
@@ -488,6 +657,16 @@ export class Renderer {
       if (slot.life > 0) {
         slot.life -= dt
         ;(slot.line.material as THREE.LineBasicMaterial).opacity = Math.max(slot.life / 0.14, 0) * 0.9
+      }
+    }
+
+    for (const slot of this.flashPool) {
+      if (slot.life > 0) {
+        slot.life -= dt
+        const t = 1 - Math.max(slot.life / 0.45, 0)
+        slot.ring.scale.setScalar(0.4 + t * 1.4)
+        ;(slot.ring.material as THREE.MeshBasicMaterial).opacity = (1 - t) * 0.9
+        if (slot.life <= 0) slot.ring.visible = false
       }
     }
   }

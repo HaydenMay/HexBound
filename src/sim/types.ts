@@ -9,6 +9,11 @@ export interface EnemyDef {
   ritualDamage: number
   scale: number
   color: number
+  curseResist?: number
+  structureDamage?: number
+  structureRange?: number
+  targetsBlockingOnly?: boolean
+  traitName?: string
 }
 
 export interface WaveGroup {
@@ -28,19 +33,67 @@ export interface CauldronStats {
   maxStacks: number
   stackInterval: number
   stackDuration: number
+  spreadRadius?: number
+  frenzyPerSec?: number
 }
 
 export interface TotemStats {
   damage: number
   maxTargets: number
-  range: number
   chainRange: number
   cooldown: number
 }
 
 export interface GroveStats {
-  penaltyRadius: number
   costPenalty: number
+}
+
+export interface GateStats {
+  steps: number
+  cooldown: number
+}
+
+export interface RingStats {
+  raiseChance: number
+  duration: number
+  dps: number
+  attackRadius: number
+  maxActive: number
+}
+
+export type KindStats = {
+  kind: 'cauldron'
+  cauldron: CauldronStats
+} | {
+  kind: 'totem'
+  totem: TotemStats
+} | {
+  kind: 'grove'
+  grove: GroveStats
+} | {
+  kind: 'gate'
+  gate: GateStats
+} | {
+  kind: 'ring'
+  ring: RingStats
+} | {
+  kind: 'orb'
+}
+
+export type UpgradeTier = KindStats & {
+  label: string
+  desc: string
+  cost: number
+  radius: number
+  forks?: ForkOption[]
+}
+
+export type ForkOption = KindStats & {
+  id: string
+  label: string
+  desc: string
+  cost: number
+  radius: number
 }
 
 export interface StructureDef {
@@ -49,11 +102,9 @@ export interface StructureDef {
   blurb: string
   cost: number
   blocksPath: boolean
-  auraRadius: number
-  kind: 'cauldron' | 'totem' | 'grove'
-  cauldron?: CauldronStats
-  totem?: TotemStats
-  grove?: GroveStats
+  hp: number
+  color: number
+  tiers: UpgradeTier[]
 }
 
 export interface GameConfig {
