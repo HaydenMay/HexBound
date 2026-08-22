@@ -46,14 +46,19 @@ test('palette is horizontally scrollable when cards overflow the screen', async 
   await boot(page)
   const state = await page.evaluate(() => {
     const el = document.getElementById('palette')!
+    const card = el.querySelector('.card') as HTMLElement
     return {
       overflowX: getComputedStyle(el).overflowX,
-      touchAction: getComputedStyle(el).touchAction,
+      paletteTouch: getComputedStyle(el).touchAction,
+      cardTouch: getComputedStyle(card).touchAction,
+      bodyTouch: getComputedStyle(document.body).touchAction,
       scrollable: el.scrollWidth > el.clientWidth
     }
   })
   expect(state.overflowX).toBe('auto')
-  expect(state.touchAction).toContain('pan-x')
+  expect(state.paletteTouch).toBe('pan-x')
+  expect(state.cardTouch).toBe('pan-x')
+  expect(state.bodyTouch).not.toBe('none')
   expect(state.scrollable).toBe(true)
 
   await page.evaluate(() => document.getElementById('palette')!.scrollBy({ left: 320 }))
