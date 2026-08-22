@@ -2,32 +2,328 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <meta name="description" content="HexBound - a witchcraft tower defense game" />
     <title>HexBound</title>
     <style>
+      :root {
+        --bg: #0d0a16;
+        --panel: rgba(21, 14, 36, 0.86);
+        --panel-edge: rgba(178, 107, 255, 0.28);
+        --accent: #b26bff;
+        --essence: #8cff9d;
+        --danger: #ff5a5a;
+        --teal: #6fd8c8;
+        --text: #e8e0f0;
+        --muted: #9d92b4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
         margin: 0;
-        min-height: 100vh;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, sans-serif;
+        touch-action: none;
+      }
+      #game {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        user-select: none;
+      }
+      #topbar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 10px 16px;
+        background: linear-gradient(to bottom, rgba(13, 10, 22, 0.9), rgba(13, 10, 22, 0));
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        border-radius: 10px;
+        padding: 6px 14px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+      }
+      #essence-value {
+        color: var(--essence);
+      }
+      #ritual {
+        flex: 1;
+        max-width: 380px;
+        height: 26px;
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+      #ritual-fill {
+        position: absolute;
+        inset: 0;
+        width: 0%;
+        background: linear-gradient(90deg, #5a2a8a, #b26bff);
+        transition: width 0.3s ease;
+      }
+      #ritual-label {
+        position: absolute;
+        inset: 0;
         display: grid;
         place-items: center;
-        background: #14101f;
-        color: #e8e0f0;
-        font-family: system-ui, sans-serif;
-        text-align: center;
-      }
-      h1 {
-        font-size: 3rem;
-        margin-bottom: 0.25rem;
+        font-size: 12px;
+        font-weight: 700;
         letter-spacing: 0.08em;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
       }
-      p {
-        opacity: 0.7;
+      #stability {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .pip {
+        width: 11px;
+        height: 11px;
+        transform: rotate(45deg);
+        background: var(--danger);
+        box-shadow: 0 0 6px rgba(255, 90, 90, 0.7);
+        transition: opacity 0.25s;
+      }
+      .pip.out {
+        opacity: 0.15;
+        box-shadow: none;
+      }
+      #sysbtns {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      button {
+        pointer-events: auto;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .sysbtn,
+      #startwave {
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--panel-edge);
+        border-radius: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        transition: border-color 0.15s, transform 0.05s;
+      }
+      .sysbtn:hover:not(:disabled),
+      #startwave:hover:not(:disabled) {
+        border-color: var(--accent);
+      }
+      .sysbtn:active:not(:disabled),
+      #startwave:active:not(:disabled) {
+        transform: scale(0.96);
+      }
+      .sysbtn {
+        min-width: 74px;
+        padding: 7px 10px;
+        font-size: 13px;
+      }
+      .sysbtn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #bottombar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 14px;
+        padding: 14px 16px 18px;
+      }
+      #palette {
+        display: flex;
+        gap: 10px;
+      }
+      .card {
+        width: 168px;
+        text-align: left;
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        border-radius: 12px;
+        padding: 10px 12px;
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        transition: border-color 0.15s, transform 0.1s, opacity 0.2s;
+      }
+      .card:hover {
+        border-color: var(--accent);
+      }
+      .card.selected {
+        border-color: var(--teal);
+        box-shadow: 0 0 14px rgba(111, 216, 200, 0.35);
+        transform: translateY(-4px);
+      }
+      .card.poor {
+        opacity: 0.45;
+      }
+      .card-key {
+        position: absolute;
+        display: none;
+      }
+      .card-name {
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .card-cost {
+        font-size: 12px;
+        color: var(--essence);
+        font-weight: 600;
+      }
+      .card-blurb {
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      #startwave {
+        font-size: 15px;
+        padding: 14px 26px;
+        color: #14101f;
+        background: var(--accent);
+        border-color: transparent;
+      }
+      #startwave.hidden {
+        display: none;
+      }
+      #banner {
+        position: fixed;
+        top: 18%;
+        left: 50%;
+        transform: translateX(-50%) scale(0.92);
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        border-radius: 12px;
+        padding: 12px 30px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        opacity: 0;
+        transition: opacity 0.25s, transform 0.25s;
+        white-space: nowrap;
+      }
+      #banner.show {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
+      #banner.danger {
+        color: var(--danger);
+        border-color: rgba(255, 90, 90, 0.55);
+      }
+      #vignette {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        box-shadow: inset 0 0 120px rgba(255, 40, 40, 0);
+        transition: box-shadow 0.12s;
+      }
+      #vignette.hit {
+        box-shadow: inset 0 0 160px rgba(255, 40, 40, 0.65);
+      }
+      #overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 7, 18, 0.82);
+        backdrop-filter: blur(6px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        pointer-events: auto;
+        z-index: 10;
+      }
+      #overlay.hidden {
+        display: none;
+      }
+      #overlay-title {
+        font-size: 42px;
+        margin: 0;
+        letter-spacing: 0.06em;
+      }
+      #overlay-sub {
+        color: var(--muted);
+        max-width: 420px;
+        text-align: center;
+        line-height: 1.5;
+        margin: 0 0 14px;
+      }
+      #restart {
+        background: var(--accent);
+        color: #14101f;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 32px;
+        font-size: 16px;
+        font-weight: 800;
+      }
+      @media (max-width: 720px) {
+        .card {
+          width: 128px;
+        }
+        .card-blurb {
+          display: none;
+        }
+        #banner {
+          font-size: 16px;
+        }
+        #overlay-title {
+          font-size: 30px;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <canvas id="game"></canvas>
+    <div id="hud">
+      <div id="topbar">
+        <div class="stat"><span id="essence-value">0</span> essence</div>
+        <div class="stat" id="wave-value">Wave 1 / 8</div>
+        <div id="ritual">
+          <div id="ritual-fill"></div>
+          <span id="ritual-label">Ritual 0%</span>
+        </div>
+        <div id="stability"></div>
+        <div id="sysbtns">
+          <button class="sysbtn" id="pause">Pause</button>
+          <button class="sysbtn" id="speed">1x</button>
+        </div>
+      </div>
+      <div id="banner"></div>
+      <div id="bottombar">
+        <div id="palette"></div>
+        <button id="startwave">Begin Wave 1</button>
+      </div>
+    </div>
+    <div id="vignette"></div>
+    <div id="overlay" class="hidden">
+      <h1 id="overlay-title"></h1>
+      <p id="overlay-sub"></p>
+      <button id="restart">Try Again</button>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
