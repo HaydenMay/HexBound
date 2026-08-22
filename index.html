@@ -49,7 +49,8 @@
       #topbar {
         display: flex;
         align-items: center;
-        gap: 18px;
+        flex-wrap: wrap;
+        gap: 12px 18px;
         padding: 10px 16px;
         background: linear-gradient(to bottom, rgba(13, 10, 22, 0.9), rgba(13, 10, 22, 0));
       }
@@ -148,14 +149,29 @@
       }
       #bottombar {
         display: flex;
-        align-items: flex-end;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 12px calc(16px + env(safe-area-inset-bottom));
+      }
+      #wavepreview {
+        display: flex;
+        flex-wrap: wrap;
         justify-content: center;
-        gap: 14px;
-        padding: 14px 16px 18px;
+        gap: 8px;
+        max-width: 96vw;
+        pointer-events: none;
       }
       #palette {
         display: flex;
         gap: 10px;
+        max-width: min(96vw, 980px);
+        overflow-x: auto;
+        touch-action: pan-x;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px 4px;
+        border-radius: 12px;
+        scrollbar-width: thin;
       }
       .card {
         width: 168px;
@@ -208,15 +224,6 @@
       }
       #startwave.hidden {
         display: none;
-      }
-      #wavepreview {
-        position: fixed;
-        bottom: 148px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 8px;
-        pointer-events: none;
       }
       .chip {
         background: var(--panel);
@@ -417,13 +424,55 @@
       }
       @media (max-width: 720px) {
         .card {
-          width: 128px;
+          width: 116px;
+          padding: 8px 9px;
+          flex-shrink: 0;
+        }
+        .card-name {
+          font-size: 12px;
+        }
+        .card-cost {
+          font-size: 11px;
         }
         .card-blurb {
           display: none;
         }
+        .stat {
+          padding: 4px 10px;
+          font-size: 13px;
+        }
+        #topbar {
+          gap: 8px;
+          padding: 8px 10px;
+        }
+        #ritual {
+          height: 22px;
+        }
+        .pip {
+          width: 9px;
+          height: 9px;
+        }
+        .sysbtn {
+          min-width: 54px;
+          padding: 5px 8px;
+          font-size: 11px;
+        }
+        #startwave {
+          font-size: 14px;
+          padding: 12px 22px;
+        }
+        #inspect {
+          left: 12px;
+          right: 12px;
+          width: auto;
+          top: auto;
+          bottom: 205px;
+          max-height: 38vh;
+          overflow-y: auto;
+        }
         #banner {
-          font-size: 16px;
+          font-size: 15px;
+          top: 13%;
         }
         #overlay-title {
           font-size: 30px;
@@ -448,8 +497,8 @@
         </div>
       </div>
       <div id="banner"></div>
-      <div id="wavepreview"></div>
       <div id="bottombar">
+        <div id="wavepreview"></div>
         <div id="palette"></div>
         <button id="startwave">Begin Wave 1</button>
       </div>

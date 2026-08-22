@@ -52,12 +52,13 @@ export class Renderer {
   private poolIndex = 0
   private time = 0
 
-  private dragging = false
   private panning = false
   private lastX = 0
   private lastY = 0
   private hoverNdc = new THREE.Vector2()
   private hasHover = false
+  private activePointers = new Map<number, { x: number; y: number }>()
+  private pinchDist = 0
 
   constructor(private canvas: HTMLCanvasElement, private game: Game, private input: { selectedDefId: string | null }) {
     this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -475,17 +476,41 @@ export class Renderer {
     this.target.z = THREE.MathUtils.clamp(this.target.z, -3, 1.5 * (grid.rows - 1) + 3)
   }
 
+  private currentPinchDistance(): number {
+    const pts = [...this.activePointers.values()]
+    if (pts.length < 2) return 0
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+  }
+
   private bindInput(): void {
     const canvas = this.canvas
     canvas.addEventListener('pointerdown', e => {
-      this.dragging = true
-      this.panning = false
-      this.lastX = e.clientX
-      this.lastY = e.clientY
       canvas.setPointerCapture(e.pointerId)
+      this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (this.activePointers.size === 1) {
+        this.panning = false
+        this.lastX = e.clientX
+        this.lastY = e.clientY
+      } else if (this.activePointers.size === 2) {
+        this.panning = true
+        this.pinchDist = this.currentPinchDistance()
+      } else {
+        this.panning = true
+      }
     })
     canvas.addEventListener('pointermove', e => {
-      if (this.dragging) {
+      const tracked = this.activePointers.get(e.pointerId)
+      if (tracked) {
+        tracked.x = e.clientX
+        tracked.y = e.clientY
+        if (this.activePointers.size >= 2) {
+          const nd = this.currentPinchDistance()
+          if (nd > 10 && this.pinchDist > 0) {
+            this.dist = THREE.MathUtils.clamp(this.dist * (this.pinchDist / nd), 13, 36)
+            this.pinchDist = nd
+          }
+          return
+        }
         const dx = e.clientX - this.lastX
         const dy = e.clientY - this.lastY
         if (!this.panning && Math.abs(dx) + Math.abs(dy) > 7) this.panning = true
@@ -497,20 +522,25 @@ export class Renderer {
         }
         this.lastX = e.clientX
         this.lastY = e.clientY
-      } else {
+      } else if (this.activePointers.size === 0) {
         this.ghostHex = this.pickHex(e.clientX, e.clientY)
         this.hasHover = true
         this.updateGhost()
       }
     })
-    canvas.addEventListener('pointerup', e => {
-      if (this.dragging && !this.panning) {
+    const releasePointer = (e: PointerEvent, allowTap: boolean) => {
+      this.activePointers.delete(e.pointerId)
+      if (this.activePointers.size < 2) this.pinchDist = 0
+      if (allowTap && !this.panning && this.activePointers.size === 0) {
         const hex = this.pickHex(e.clientX, e.clientY)
         if (hex && this.onTap) this.onTap(hex)
       }
-      this.dragging = false
-      this.panning = false
-    })
+      if (this.activePointers.size === 0) {
+        this.panning = false
+      }
+    }
+    canvas.addEventListener('pointerup', e => releasePointer(e, true))
+    canvas.addEventListener('pointercancel', e => releasePointer(e, false))
     canvas.addEventListener('pointerleave', () => {
       this.hasHover = false
       if (this.ghost) this.ghost.visible = false
