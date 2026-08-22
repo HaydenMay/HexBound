@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Game, type LightningPayload, type NovaPayload, type TeleportPayload } from '../sim/game'
+import { Game, type LightningPayload, type NovaPayload } from '../sim/game'
 import { currentTier, type StructureInstance } from '../sim/structures'
 import { HEX_SIZE, hexToWorld, lerpHexToWorld, worldToHex, type HexCoord, type WorldPos } from '../sim/hex'
 import type { KindStats } from '../sim/types'
@@ -32,7 +32,6 @@ export class Renderer {
   private arrows: THREE.InstancedMesh
   private enemyMesh: THREE.InstancedMesh
   private allyMesh: THREE.InstancedMesh
-  private revealMesh: THREE.InstancedMesh
   private charmMesh!: THREE.InstancedMesh
   private structureGroups = new Map<string, THREE.Group>()
   private hpBars = new Map<string, { bg: THREE.Mesh; fill: THREE.Mesh }>()
@@ -117,16 +116,6 @@ export class Renderer {
     this.allyMesh.count = 0
     this.scene.add(this.allyMesh)
 
-    const revealGeo = new THREE.RingGeometry(0.48, 0.6, 24)
-    revealGeo.rotateX(-Math.PI / 2)
-    this.revealMesh = new THREE.InstancedMesh(
-      revealGeo,
-      new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85, depthWrite: false }),
-      300
-    )
-    this.revealMesh.count = 0
-    this.scene.add(this.revealMesh)
-
     const charmGeo = new THREE.RingGeometry(0.34, 0.46, 20)
     charmGeo.rotateX(-Math.PI / 2)
     this.charmMesh = new THREE.InstancedMesh(
@@ -201,7 +190,6 @@ export class Renderer {
       this.rebuildTiles()
     })
     game.events.on<LightningPayload>('lightning', p => this.spawnLightning(p))
-    game.events.on<TeleportPayload>('teleport', p => this.spawnFlash(p.from, p.to))
     game.events.on<NovaPayload>('nova', p => this.spawnNova(p))
 
     this.bindInput()
@@ -251,27 +239,74 @@ export class Renderer {
     const g = new THREE.Group()
     const std = (color: number, emissive = 0x000000, ei = 0) =>
       new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: ei })
+    const addTick = (fn: (t: number, dt: number) => void) => {
+      const prev = g.userData.tick as ((t: number, dt: number) => void) | undefined
+      g.userData.tick = prev ? (t: number, dt: number) => { prev(t, dt); fn(t, dt) } : fn
+    }
+    const resident = (): THREE.Group => {
+      const fig = new THREE.Group()
+      const robe = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.4, 6), std(0x3a2a5a))
+      robe.position.y = 0.2
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), std(0xd8b8a0))
+      head.position.y = 0.46
+      const hat = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.24, 6), std(0x241a3a))
+      hat.position.y = 0.62
+      fig.add(robe, head, hat)
+      return fig
+    }
     if (kind === 'cauldron') {
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.4, 0.55, 10), std(0x3b2f52))
       pot.position.y = 0.28
-      const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.1, 10), std(0x2f4a35, 0x8cff9d, 1.4))
+      const brewMat = std(0x2f4a35, 0x8cff9d, 1.4)
+      const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.1, 10), brewMat)
       brew.position.y = 0.58
       g.add(pot, brew)
+      const witch = resident()
+      witch.position.set(0.62, 0, 0.22)
+      witch.rotation.y = -Math.PI / 2.4
+      const stickPivot = new THREE.Group()
+      stickPivot.position.set(-0.12, 0.34, -0.14)
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.55, 5), std(0x5a4632))
+      stick.rotation.x = Math.PI / 2.6
+      stick.position.z = 0.16
+      stickPivot.add(stick)
+      witch.add(stickPivot)
+      g.add(witch)
+      let active = false
+      g.userData.setActive = (v: boolean) => {
+        active = v
+      }
+      addTick((t, dt) => {
+        witch.position.y = Math.sin(t * 2.1) * 0.02
+        stickPivot.rotation.y += (active ? 7 : 1.6) * dt
+        const targetI = active ? 2.6 : 1.4
+        brewMat.emissiveIntensity += (targetI - brewMat.emissiveIntensity) * 0.08
+        const pulse = active ? 1 + Math.sin(t * 9) * 0.06 : 1
+        brew.scale.setScalar(pulse)
+      })
     } else if (kind === 'totem') {
       const pole = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 6), std(0x4a3a63))
       pole.position.y = 0.75
       const orb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), std(0x2a3a55, 0x9fd8ff, 1.8))
       orb.position.y = 1.58
       g.add(pole, orb)
-    } else if (kind === 'gate') {
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 0.22, 8), std(0x3a2f52))
-      base.position.y = 0.11
-      const portal = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.09, 8, 28), std(0x2a1a3e, 0xd8aaff, 1.8))
-      portal.position.y = 0.85
-      const core = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), new THREE.MeshBasicMaterial({ color: 0x6a3aa0, transparent: true, opacity: 0.55, side: THREE.DoubleSide }))
-      core.position.y = 0.85
-      g.add(base, portal, core)
-    } else if (kind === 'idol') {
+      const shaman = resident()
+      shaman.scale.setScalar(0.85)
+      shaman.position.set(-0.6, 0, 0.18)
+      shaman.rotation.y = Math.PI / 2
+      const armGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.3, 5)
+      const armL = new THREE.Mesh(armGeo, std(0x3a2a5a))
+      armL.rotation.z = -2.2
+      armL.position.set(-0.12, 0.42, 0)
+      const armR = new THREE.Mesh(armGeo, std(0x3a2a5a))
+      armR.rotation.z = 2.2
+      armR.position.set(0.12, 0.42, 0)
+      shaman.add(armL, armR)
+      g.add(shaman)
+      addTick(t => {
+        shaman.position.y = Math.abs(Math.sin(t * 3.4)) * 0.07
+        shaman.rotation.z = Math.sin(t * 3.4) * 0.08
+      })    } else if (kind === 'idol') {
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 0.24, 8), std(0x3a2f52))
       base.position.y = 0.12
       const body = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.72, 6), std(0x3a2f52))
@@ -279,6 +314,15 @@ export class Renderer {
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), std(0x2a1a3e, 0xc08aff, 1.4))
       head.position.y = 1.02
       g.add(base, body, head)
+      const whisperer = resident()
+      whisperer.scale.setScalar(0.7)
+      g.add(whisperer)
+      addTick(t => {
+        const a = t * 0.5
+        whisperer.position.set(Math.cos(a) * 0.62, 0, Math.sin(a) * 0.62)
+        whisperer.rotation.y = -a - Math.PI / 2
+        whisperer.rotation.x = Math.max(Math.sin(t * 2.4), 0) * 0.5
+      })
     } else if (kind === 'well') {
       const rimGeo = new THREE.TorusGeometry(0.55, 0.09, 8, 28)
       rimGeo.rotateX(-Math.PI / 2)
@@ -295,6 +339,24 @@ export class Renderer {
       const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.5, 6), std(0x3a2f52))
       post2.position.set(0.42, 0.25, -0.3)
       g.add(rim, water, post1, post2)
+      const keeper = resident()
+      keeper.position.set(0.6, 0, 0.28)
+      keeper.rotation.y = -Math.PI / 2.4
+      const ladlePivot = new THREE.Group()
+      ladlePivot.position.set(-0.12, 0.36, -0.14)
+      const ladle = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.46, 5), std(0x9a8a6a))
+      ladle.rotation.x = Math.PI / 2.4
+      ladle.position.z = 0.13
+      ladlePivot.add(ladle)
+      keeper.add(ladlePivot)
+      g.add(keeper)
+      const rimMat = rim.material as THREE.MeshStandardMaterial
+      addTick(t => {
+        ladlePivot.rotation.x = Math.sin(t * 1.7) * 0.4
+        keeper.position.y = Math.abs(Math.sin(t * 3.4)) * 0.02
+        rimMat.emissiveIntensity = 1.1 + Math.sin(t * 2.2) * 0.45
+        water.position.y = 0.12 + Math.sin(t * 2.6) * 0.008
+      })
     } else if (kind === 'mirror') {
       const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.2, 8), std(0x3a2f52))
       stand.position.y = 0.1
@@ -306,7 +368,24 @@ export class Renderer {
       )
       glass.position.y = 0.85
       g.add(stand, frame, glass)
+      const attendant = resident()
+      attendant.scale.setScalar(0.72)
+      attendant.position.set(0.58, 0, 0.32)
+      attendant.rotation.y = -Math.PI / 2.2
+      const clothPivot = new THREE.Group()
+      clothPivot.position.set(-0.1, 0.38, -0.12)
+      const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.09), std(0xd8cfe8, 0xf0f0ff, 0.4))
+      cloth.position.z = 0.1
+      clothPivot.add(cloth)
+      attendant.add(clothPivot)
+      g.add(attendant)
+      const glassMat = glass.material as THREE.MeshBasicMaterial
+      addTick(t => {
+        clothPivot.rotation.y = Math.sin(t * 3.1) * 0.7
+        glassMat.opacity = 0.48 + Math.sin(t * 2.3) * 0.12
+      })
     } else if (kind === 'ring') {
+      const caps: THREE.Mesh[] = []
       for (let i = 0; i < 5; i++) {
         const angle = (i / 5) * Math.PI * 2
         const mx = Math.cos(angle) * 0.55
@@ -316,14 +395,39 @@ export class Renderer {
         const cap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), std(0x2a4a38, 0x9dffce, 1.5))
         cap.scale.y = 0.7
         cap.position.set(mx, 0.24, mz)
+        caps.push(cap)
         g.add(stem, cap)
       }
-    } else if (kind === 'orb') {
-      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 0.55, 8), std(0x3a2f52))
-      pedestal.position.y = 0.28
-      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), std(0x4a3a20, 0xffe08a, 2.0))
-      orb.position.y = 0.95
-      g.add(pedestal, orb)
+      const hermit = resident()
+      hermit.scale.setScalar(0.75)
+      hermit.position.y = -0.06
+      hermit.rotation.y = Math.PI / 3
+      g.add(hermit)
+      addTick(t => {
+        for (let i = 0; i < caps.length; i++) {
+          caps[i].position.y = 0.24 + Math.sin(t * 2 + i * 1.3) * 0.02
+          caps[i].scale.y = 0.7 + Math.sin(t * 3 + i) * 0.05
+        }
+        hermit.rotation.z = Math.sin(t * 1.2) * 0.06
+      })
+    } else if (kind === 'wall') {
+      const boneMat = std(0xe8e2d0)
+      for (let i = 0; i < 4; i++) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.66, 5), boneMat)
+        post.position.set(-0.42 + i * 0.28, 0.33, i % 2 === 0 ? 0.06 : -0.06)
+        post.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.06
+        g.add(post)
+      }
+      const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.98, 5), boneMat)
+      crossbar.rotation.z = Math.PI / 2
+      crossbar.position.y = 0.46
+      const crossbar2 = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.98, 5), boneMat)
+      crossbar2.rotation.z = Math.PI / 2
+      crossbar2.position.y = 0.22
+      const skull = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 8), std(0xf4efe0))
+      skull.position.set(0, 0.6, 0)
+      skull.scale.y = 0.85
+      g.add(crossbar, crossbar2, skull)
     } else {
       const t1 = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.95, 6), std(0x2f6b45))
       t1.position.set(-0.28, 0.47, 0.12)
@@ -332,6 +436,17 @@ export class Renderer {
       const t3 = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.55, 6), std(0x2a5a3c))
       t3.position.set(0.05, 0.28, 0.32)
       g.add(t1, t2, t3)
+      const keeper = resident()
+      keeper.scale.setScalar(0.78)
+      keeper.position.set(0.42, 0, 0.3)
+      keeper.rotation.y = Math.PI / 2.2
+      g.add(keeper)
+      addTick(t => {
+        t1.rotation.z = Math.sin(t * 1.1 + 1) * 0.04
+        t2.rotation.z = Math.sin(t * 0.9 + 2.4) * 0.04
+        t3.rotation.z = Math.sin(t * 1.4) * 0.04
+        keeper.rotation.z = Math.sin(t * 1.6) * 0.05
+      })
     }
     return g
   }
@@ -501,18 +616,6 @@ export class Renderer {
     mat.color.setHex(p.color)
     mat.opacity = 0.95
     slot.life = 1
-  }
-
-  private spawnFlash(from: WorldPos, to: WorldPos): void {
-    for (const pos of [from, to]) {
-      const slot = this.flashPool[this.poolIndex++ % this.flashPool.length]
-      slot.ring.position.set(pos.x, 0.2, pos.z)
-      slot.ring.visible = true
-      slot.ring.scale.setScalar(0.4)
-      ;(slot.ring.material as THREE.MeshBasicMaterial).opacity = 0.9
-      slot.life = 0.45
-      slot.maxLife = 0.45
-    }
   }
 
   private pickHex(clientX: number, clientY: number): HexCoord | null {
@@ -693,17 +796,6 @@ export class Renderer {
     this.enemyMesh.instanceMatrix.needsUpdate = true
     if (this.enemyMesh.instanceColor) this.enemyMesh.instanceColor.needsUpdate = true
 
-    let rn = 0
-    for (let i = 0; i < enemies.length && rn < 300; i++) {
-      const e = enemies[i]
-      if (!e.def.traitName || !e.revealed) continue
-      const w = lerpHexToWorld(e.cur, e.next, e.t)
-      m.compose(new THREE.Vector3(w.x, 0.1, w.z), q.identity(), scaleVec.set(1, 1, 1))
-      this.revealMesh.setMatrixAt(rn++, m)
-    }
-    this.revealMesh.count = rn
-    this.revealMesh.instanceMatrix.needsUpdate = true
-
     let cn = 0
     for (let i = 0; i < enemies.length && cn < 300; i++) {
       const e = enemies[i]
@@ -729,16 +821,37 @@ export class Renderer {
 
     for (const s of this.game.structures) {
       const key = `${s.hex.col},${s.hex.row}`
+      const world = hexToWorld(s.hex)
+      const group = this.structureGroups.get(key)
+      if (group) {
+        const tick = group.userData.tick as ((t: number, dt: number) => void) | undefined
+        if (tick) tick(this.time, dt)
+        const setActive = group.userData.setActive as ((v: boolean) => void) | undefined
+        if (setActive) {
+          const r = currentTier(s).radius + 0.4
+          let active = false
+          for (const e of enemies) {
+            const p = lerpHexToWorld(e.cur, e.next, e.t)
+            const dx = p.x - world.x
+            const dz = p.z - world.z
+            if (dx * dx + dz * dz <= r * r) {
+              active = true
+              break
+            }
+          }
+          setActive(active)
+        }
+      }
       const bar = this.hpBars.get(key)
       if (!bar) continue
       const pct = Math.max(s.hp / s.maxHp, 0)
       const damaged = s.hp < s.maxHp
       bar.bg.visible = damaged
       bar.fill.visible = damaged
-      bar.bg.position.set(hexToWorld(s.hex).x, 1.85, hexToWorld(s.hex).z)
+      bar.bg.position.set(world.x, 1.85, world.z)
       bar.fill.scale.x = Math.max(pct, 0.001)
-      bar.fill.position.x = hexToWorld(s.hex).x - (1 - pct) * 0.52
-      bar.fill.position.z = hexToWorld(s.hex).z + 0.001
+      bar.fill.position.x = world.x - (1 - pct) * 0.52
+      bar.fill.position.z = world.z + 0.001
       const mat = bar.fill.material as THREE.MeshBasicMaterial
       mat.color.setHex(pct > 0.5 ? 0x7fe3a0 : pct > 0.25 ? 0xe8c860 : 0xff5a5a)
     }

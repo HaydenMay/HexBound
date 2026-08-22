@@ -13,8 +13,6 @@ export class Enemy {
   poisonedTime = 0
   stackProgress = 0
   inAura = false
-  revealed = false
-  history: HexCoord[] = []
   attackingHex: HexCoord | null = null
   charmedBy: string | null = null
   charmRemaining = 0
@@ -24,22 +22,6 @@ export class Enemy {
     this.id = Enemy.nextId++
     this.hp = def.hp
     this.cur = { ...spawn }
-  }
-
-  remember(): void {
-    this.history.unshift({ ...this.cur })
-    if (this.history.length > 48) this.history.pop()
-  }
-
-  teleportBack(steps: number): HexCoord | null {
-    if (!this.history.length) return null
-    const idx = Math.min(Math.max(steps, 1), this.history.length) - 1
-    const target = this.history[idx]
-    this.history.splice(0, idx + 1)
-    this.cur = { ...target }
-    this.next = null
-    this.t = 0
-    return { ...target }
   }
 
   tickEffects(dt: number): void {
@@ -57,7 +39,6 @@ export class Enemy {
       const n = nextStep(this.cur)
       if (!n) return 'arrived'
       this.next = n
-      this.remember()
     }
     this.t += this.def.speed * dt
     if (this.t >= 1) {

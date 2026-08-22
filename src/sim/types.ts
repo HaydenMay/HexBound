@@ -12,8 +12,6 @@ export interface EnemyDef {
   curseResist?: number
   structureDamage?: number
   structureRange?: number
-  targetsBlockingOnly?: boolean
-  traitName?: string
 }
 
 export interface WaveGroup {
@@ -46,11 +44,6 @@ export interface TotemStats {
 
 export interface GroveStats {
   costPenalty: number
-}
-
-export interface GateStats {
-  steps: number
-  cooldown: number
 }
 
 export interface RingStats {
@@ -89,9 +82,6 @@ export type KindStats = {
   kind: 'grove'
   grove: GroveStats
 } | {
-  kind: 'gate'
-  gate: GateStats
-} | {
   kind: 'ring'
   ring: RingStats
 } | {
@@ -104,7 +94,7 @@ export type KindStats = {
   kind: 'mirror'
   mirror: MirrorStats
 } | {
-  kind: 'orb'
+  kind: 'wall'
 }
 
 export type UpgradeTier = KindStats & {
@@ -112,6 +102,7 @@ export type UpgradeTier = KindStats & {
   desc: string
   cost: number
   radius: number
+  hp?: number
   forks?: ForkOption[]
 }
 
@@ -121,6 +112,7 @@ export type ForkOption = KindStats & {
   desc: string
   cost: number
   radius: number
+  hp?: number
 }
 
 export interface StructureDef {
@@ -131,6 +123,7 @@ export interface StructureDef {
   blocksPath: boolean
   hp: number
   color: number
+  structureTarget?: boolean
   tiers: UpgradeTier[]
 }
 

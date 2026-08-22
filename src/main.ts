@@ -6,8 +6,6 @@ import { LEVELS } from './data/levels'
 import { loadSave, resetSave, saveProgress } from './save/save'
 import { Renderer } from './render/renderer'
 import { Hud } from './ui/hud'
-import { LabelLayer } from './ui/labels'
-import { lerpHexToWorld } from './sim/hex'
 
 function showFatal(message: string): void {
   const overlay = document.getElementById('overlay')
@@ -53,7 +51,6 @@ try {
     const canvas = document.getElementById('game') as HTMLCanvasElement
     const renderer = new Renderer(canvas, game, input)
     const hud = new Hud(game, input, controls, () => renderer.refreshSelection())
-    const labels = new LabelLayer(document.getElementById('labels') as HTMLElement)
 
     renderer.onTap = hex => {
       const inst = game.structureAt(hex)
@@ -113,16 +110,6 @@ try {
 
       renderer.update(dtReal)
       hud.update()
-
-      const items = []
-      for (const e of game.enemies) {
-        if (!e.def.traitName || !e.revealed) continue
-        const w = lerpHexToWorld(e.cur, e.next, e.t)
-        const sp = renderer.projectPoint(w)
-        items.push({ text: e.def.traitName, x: sp.x, y: sp.y - 14, visible: sp.visible })
-      }
-      labels.update(items)
-
       renderer.render()
       requestAnimationFrame(frame)
     }

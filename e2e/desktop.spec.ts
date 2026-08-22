@@ -10,7 +10,7 @@ test('desktop boots, places a tower, and runs a wave', async ({ page }) => {
   await page.locator('#level-list .level-btn:not(.locked)').first().click()
   await expect(menu).toBeHidden()
 
-  await expect(page.locator('#palette .card')).toHaveCount(9)
+  await expect(page.locator('#palette .card')).toHaveCount(8)
   await expect(page.locator('#overlay')).toBeHidden()
 
   await page.locator('#palette .card').first().click()

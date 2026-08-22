@@ -23,12 +23,6 @@ export interface LightningPayload {
   points: WorldPos[]
 }
 
-export interface TeleportPayload {
-  enemyId: number
-  from: WorldPos
-  to: WorldPos
-}
-
 export interface NovaPayload {
   pos: WorldPos
   radius: number
@@ -155,6 +149,10 @@ export class Game {
     this.essence -= chosen.cost
     if (forked) inst.forkId = (chosen as ForkOption).id
     else inst.tierIndex++
+    if (chosen.hp !== undefined) {
+      inst.maxHp = chosen.hp
+      inst.hp = chosen.hp
+    }
     if (kindStats(inst).kind === 'grove') this.afterBattlefieldChanged()
     this.events.emit('structureUpgraded', inst)
     return 'ok'
@@ -190,8 +188,6 @@ export class Game {
 
     this.applyCauldrons(dt)
     this.applyIdols(dt)
-    this.applyOrbs()
-    this.applyGates(dt)
     this.applyTotems(dt)
     this.applyWells(dt)
     this.applyAllies(dt)
@@ -377,43 +373,6 @@ export class Game {
     return null
   }
 
-  private applyOrbs(): void {
-    for (const s of this.structures) {
-      if (kindStats(s).kind !== 'orb') continue
-      const radius = currentTier(s).radius
-      for (const e of this.enemies) {
-        if (!e.revealed && hexDistance(s.hex, e.cur) <= radius) {
-          e.revealed = true
-          this.events.emit('enemyRevealed', e)
-        }
-      }
-    }
-  }
-
-  private applyGates(dt: number): void {
-    for (const s of this.structures) {
-      const stats = kindStats(s)
-      if (stats.kind !== 'gate') continue
-      const gate = stats.gate
-      s.cooldown -= dt
-      if (s.cooldown > 0) continue
-      const inRange = this.enemies
-        .filter(e => e.history.length > 0 && !e.charmedBy && hexDistance(s.hex, e.cur) <= currentTier(s).radius)
-        .sort((a, b) => hexDistance(s.hex, a.cur) - hexDistance(s.hex, b.cur))
-      const target = inRange[0]
-      if (!target) continue
-      const from = lerpHexToWorld(target.cur, target.next, target.t)
-      const dest = target.teleportBack(gate.steps)
-      if (!dest) continue
-      s.cooldown = gate.cooldown
-      this.events.emit<TeleportPayload>('teleport', {
-        enemyId: target.id,
-        from,
-        to: hexToWorld(dest)
-      })
-    }
-  }
-
   private applyTotems(dt: number): void {
     for (const s of this.structures) {
       const stats = kindStats(s)
@@ -486,11 +445,10 @@ export class Game {
         continue
       }
       const range = e.def.structureRange ?? 1.15
-      const blockingOnly = e.def.targetsBlockingOnly ?? true
       let best: StructureInstance | null = null
       let bd = Infinity
       for (const s of this.structures) {
-        if (blockingOnly && !s.def.blocksPath) continue
+        if (!s.def.structureTarget) continue
         const d = hexDistance(e.cur, s.hex)
         if (d <= range && d < bd) {
           bd = d

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Game, type TeleportPayload } from './game'
+import { Game } from './game'
 import { kindStats } from './structures'
 import { ENEMY_DEFS } from '../data/enemies'
 import { STRUCTURE_DEFS } from '../data/structures'
@@ -23,23 +23,6 @@ function step(game: Game, seconds: number): void {
   const ticks = Math.round(seconds / dt)
   for (let i = 0; i < ticks; i++) game.update(dt)
 }
-
-describe('witch gate', () => {
-  it('teleports an enemy backward along its own path', () => {
-    const game = new Game(
-      makeConfig([{ groups: [{ enemy: 'militia', count: 1, interval: 0.5, delay: 0 }], reward: 10 }])
-    , { enemies: ENEMY_DEFS, structures: STRUCTURE_DEFS })
-    game.place('witchgate', { col: 2, row: 1 })
-    let payload: TeleportPayload | null = null
-    game.events.on<TeleportPayload>('teleport', p => {
-      payload = p
-    })
-    game.startWave()
-    step(game, 40)
-    expect(payload).not.toBeNull()
-    expect(game.stability).toBeGreaterThanOrEqual(9)
-  })
-})
 
 describe('curse resistance', () => {
   it('a fully resistant foe never gains poison stacks', () => {
@@ -69,7 +52,7 @@ describe('anti-structure foes', () => {
     let destroyed = 0
     game.events.on('structureDestroyed', () => destroyed++)
     for (const row of [0, 1, 3, 4]) {
-      game.place('hexcauldron', { col: 3, row })
+      game.place('bonepalisade', { col: 3, row })
     }
     game.startWave()
     step(game, 60)
@@ -106,27 +89,6 @@ describe('mushroom ring', () => {
     } else {
       expect(true).toBe(true)
     }
-  })
-})
-
-describe('gazing orb', () => {
-  it('reveals traits and the reveal sticks', () => {
-    const scout: EnemyDef = { ...ENEMY_DEFS.runner, id: 'scout', name: 'Scout', speed: 0.7, traitName: 'Scout' }
-    const game = new Game(
-      makeConfig([{ groups: [{ enemy: 'scout', count: 1, interval: 0.5, delay: 0 }], reward: 10 }]),
-      { enemies: { ...ENEMY_DEFS, scout }, structures: STRUCTURE_DEFS }
-    )
-    game.place('gazingorb', { col: 1, row: 1 })
-    let sawRevealed = false
-    game.events.on('enemyRevealed', () => {
-      sawRevealed = true
-    })
-    game.startWave()
-    step(game, 3)
-    expect(sawRevealed).toBe(true)
-    expect(game.enemies[0]?.revealed).toBe(true)
-    step(game, 30)
-    expect(game.enemies.length).toBe(0)
   })
 })
 

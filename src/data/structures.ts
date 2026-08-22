@@ -1,6 +1,41 @@
 import type { StructureDef } from '../sim/types'
 
 export const STRUCTURE_DEFS: Record<string, StructureDef> = {
+  bonepalisade: {
+    id: 'bonepalisade',
+    name: 'Bone Palisade',
+    blurb: 'Cheap, dumb, and in the way. The maze piece.',
+    cost: 12,
+    blocksPath: true,
+    hp: 70,
+    color: 0xe8e2d0,
+    structureTarget: true,
+    tiers: [
+      {
+        kind: 'wall',
+        label: 'Bone Fence',
+        desc: 'A simple barrier of old bones. Hunters will hack it apart.',
+        cost: 0,
+        radius: 1
+      },
+      {
+        kind: 'wall',
+        label: 'Stacked Ribs',
+        desc: 'Taller, denser, harder to smash through.',
+        cost: 10,
+        radius: 1,
+        hp: 130
+      },
+      {
+        kind: 'wall',
+        label: 'Ossuary Bulwark',
+        desc: 'A wall of the gathered dead. It holds.',
+        cost: 18,
+        radius: 1,
+        hp: 200
+      }
+    ]
+  },
   hexcauldron: {
     id: 'hexcauldron',
     name: 'Hex Cauldron',
@@ -83,41 +118,6 @@ export const STRUCTURE_DEFS: Record<string, StructureDef> = {
       }
     ]
   },
-  witchgate: {
-    id: 'witchgate',
-    name: 'Witch Gate',
-    blurb: 'Hurls a foe backward along the road they came.',
-    cost: 70,
-    blocksPath: true,
-    hp: 85,
-    color: 0xd8aaff,
-    tiers: [
-      {
-        kind: 'gate',
-        label: 'Rift',
-        desc: 'Periodically drags one enemy back down their own path.',
-        cost: 0,
-        radius: 2.5,
-        gate: { steps: 10, cooldown: 7 }
-      },
-      {
-        kind: 'gate',
-        label: 'Widened Rift',
-        desc: 'Reaches farther and drags them back farther still.',
-        cost: 60,
-        radius: 3,
-        gate: { steps: 14, cooldown: 6 }
-      },
-      {
-        kind: 'gate',
-        label: 'The Long Way Home',
-        desc: 'Sends them nearly back to where they started.',
-        cost: 90,
-        radius: 3.5,
-        gate: { steps: 22, cooldown: 5 }
-      }
-    ]
-  },
   thorngrove: {
     id: 'thorngrove',
     name: 'Thorn Grove',
@@ -185,38 +185,6 @@ export const STRUCTURE_DEFS: Record<string, StructureDef> = {
         cost: 80,
         radius: 3,
         ring: { raiseChance: 0.65, duration: 12, dps: 11, attackRadius: 2, maxActive: 5 }
-      }
-    ]
-  },
-  gazingorb: {
-    id: 'gazingorb',
-    name: 'Gazing Orb',
-    blurb: 'Reveals the hidden nature of those who pass near.',
-    cost: 35,
-    blocksPath: true,
-    hp: 70,
-    color: 0xffe08a,
-    tiers: [
-      {
-        kind: 'orb',
-        label: 'Third Eye',
-        desc: 'Unmasks special foes that wander close.',
-        cost: 0,
-        radius: 3
-      },
-      {
-        kind: 'orb',
-        label: 'Far Sight',
-        desc: 'Its gaze reaches much farther.',
-        cost: 30,
-        radius: 4.5
-      },
-      {
-        kind: 'orb',
-        label: 'All-Seeing',
-        desc: 'Few secrets survive crossing this ground.',
-        cost: 45,
-        radius: 6.5
       }
     ]
   },
@@ -293,11 +261,12 @@ export const STRUCTURE_DEFS: Record<string, StructureDef> = {
   spellmirror: {
     id: 'spellmirror',
     name: 'Spell Mirror',
-    blurb: 'Returns aggression to the aggressor.',
+    blurb: 'Tanky bait that returns aggression to the aggressor.',
     cost: 45,
     blocksPath: true,
     hp: 120,
     color: 0xf0f0ff,
+    structureTarget: true,
     tiers: [
       {
         kind: 'mirror',
@@ -328,12 +297,11 @@ export const STRUCTURE_DEFS: Record<string, StructureDef> = {
 }
 
 export const STRUCTURE_ORDER = [
+  'bonepalisade',
   'hexcauldron',
   'stormtotem',
-  'witchgate',
   'thorngrove',
   'mushroomring',
-  'gazingorb',
   'whisperingidol',
   'moonwell',
   'spellmirror'

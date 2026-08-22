@@ -40,8 +40,7 @@ export const ENEMY_DEFS: Record<string, EnemyDef> = {
     ritualDamage: 1,
     scale: 1,
     color: 0xf0e6c8,
-    curseResist: 0.8,
-    traitName: 'Blessed'
+    curseResist: 0.8
   },
   hunter: {
     id: 'hunter',
@@ -52,8 +51,7 @@ export const ENEMY_DEFS: Record<string, EnemyDef> = {
     ritualDamage: 1,
     scale: 0.9,
     color: 0xb04a6a,
-    structureDamage: 10,
-    traitName: 'Hexbreaker'
+    structureDamage: 10
   },
   mage: {
     id: 'mage',
@@ -65,8 +63,6 @@ export const ENEMY_DEFS: Record<string, EnemyDef> = {
     scale: 0.85,
     color: 0x7a9ff0,
     structureDamage: 7,
-    structureRange: 3,
-    targetsBlockingOnly: false,
-    traitName: 'Battle Mage'
+    structureRange: 3
   }
 }
