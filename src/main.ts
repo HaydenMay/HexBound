@@ -2,10 +2,30 @@ import { Game } from './sim/game'
 import type { GameConfig } from './sim/types'
 import { ENEMY_DEFS } from './data/enemies'
 import { STRUCTURE_DEFS, STRUCTURE_ORDER } from './data/structures'
-import { LEVELS } from './data/levels'
+import { LEVELS, applySize, FIELD_SIZES, type FieldSize } from './data/levels'
 import { loadSave, resetSave, saveProgress } from './save/save'
 import { Renderer } from './render/renderer'
 import { Hud } from './ui/hud'
+
+const SIZE_KEY = 'hexbound.fieldSize.v1'
+
+function loadFieldSize(): FieldSize {
+  try {
+    const v = globalThis.localStorage?.getItem(SIZE_KEY)
+    if (v && (FIELD_SIZES as string[]).includes(v)) return v as FieldSize
+  } catch {
+    // storage unavailable, fall through to default
+  }
+  return 'medium'
+}
+
+function storeFieldSize(size: FieldSize): void {
+  try {
+    globalThis.localStorage?.setItem(SIZE_KEY, size)
+  } catch {
+    // non-fatal: preference simply won't persist
+  }
+}
 
 function showFatal(message: string): void {
   const overlay = document.getElementById('overlay')
@@ -38,6 +58,22 @@ try {
   const menuEl = document.getElementById('menu') as HTMLElement
   const listEl = document.getElementById('level-list') as HTMLElement
   let started = false
+
+  let fieldSize = loadFieldSize()
+  const sizeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('#size-picker .size-btn'))
+  function paintFieldSize(): void {
+    for (const btn of sizeBtns) btn.classList.toggle('selected', btn.dataset.size === fieldSize)
+  }
+  paintFieldSize()
+  sizeBtns.forEach(btn =>
+    btn.addEventListener('click', () => {
+      const size = btn.dataset.size as FieldSize | undefined
+      if (!size || started || size === fieldSize) return
+      fieldSize = size
+      storeFieldSize(size)
+      paintFieldSize()
+    })
+  )
 
   function startLevel(levelIndex: number, config: GameConfig): void {
     if (started) return
@@ -120,12 +156,12 @@ try {
     ;(window as unknown as Record<string, unknown>).__hexboundRenderer = renderer
   }
 
-  buildMenu(listEl, save.unlockedLevels, i => startLevel(i, LEVELS[i].config))
+  buildMenu(listEl, save.unlockedLevels, i => startLevel(i, applySize(LEVELS[i].config, fieldSize)))
 
   document.getElementById('reset-save')?.addEventListener('click', () => {
     resetSave()
     save.unlockedLevels = 1
-    buildMenu(listEl, save.unlockedLevels, i => startLevel(i, LEVELS[i].config))
+    buildMenu(listEl, save.unlockedLevels, i => startLevel(i, applySize(LEVELS[i].config, fieldSize)))
   })
 } catch (err) {
   console.error(err)

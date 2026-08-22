@@ -506,6 +506,38 @@
         text-decoration: underline;
         pointer-events: auto;
       }
+      #field-size {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      #size-picker {
+        display: flex;
+        gap: 6px;
+      }
+      .size-btn {
+        background: var(--panel);
+        color: var(--muted);
+        border: 1px solid var(--panel-edge);
+        border-radius: 999px;
+        padding: 8px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+      }
+      .size-btn:hover:not(.selected) {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .size-btn.selected {
+        background: rgba(178, 107, 255, 0.16);
+        border-color: var(--accent);
+        color: #fff;
+        box-shadow: 0 0 12px rgba(178, 107, 255, 0.35);
+        cursor: default;
+      }
       @media (max-width: 720px) {
         .card {
           width: 116px;
@@ -592,6 +624,14 @@
       <h1>HEXBOUND</h1>
       <p class="menu-sub">They march to end your ritual. You decide the road they take.</p>
       <div id="level-list"></div>
+      <div id="field-size">
+        <span class="menu-sub">battleground</span>
+        <div id="size-picker">
+          <button class="size-btn" data-size="small">Small</button>
+          <button class="size-btn selected" data-size="medium">Medium</button>
+          <button class="size-btn" data-size="large">Large</button>
+        </div>
+      </div>
       <button id="reset-save">reset progress</button>
     </div>
     <div id="inspect" class="hidden">

@@ -15,16 +15,37 @@ export interface LevelDef {
   config: GameConfig
 }
 
+export type FieldSize = 'small' | 'medium' | 'large'
+
+export const FIELD_SIZES: FieldSize[] = ['small', 'medium', 'large']
+
+const SIZE_FACTOR: Record<FieldSize, number> = { small: 0.72, medium: 1, large: 1.28 }
+
+export function applySize(config: GameConfig, size: FieldSize): GameConfig {
+  if (size === 'medium') return config
+  const f = SIZE_FACTOR[size]
+  const cols = Math.max(9, Math.round(config.cols * f))
+  const rows = Math.max(5, Math.round(config.rows * f))
+  const midRow = Math.floor(rows / 2)
+  return {
+    ...config,
+    cols,
+    rows,
+    entrance: { col: 0, row: midRow },
+    ritual: { col: Math.floor(cols / 2), row: midRow }
+  }
+}
+
 export const LEVELS: LevelDef[] = [
   {
     id: 'l1',
     name: 'First Circle',
     blurb: 'A small rite under a curious moon.',
     config: {
-      cols: 15,
-      rows: 9,
-      entrance: { col: 0, row: 4 },
-      ritual: { col: 7, row: 4 },
+      cols: 11,
+      rows: 7,
+      entrance: { col: 0, row: 3 },
+      ritual: { col: 5, row: 3 },
       startEssence: 150,
       startStability: 10,
       waves: [
@@ -40,10 +61,10 @@ export const LEVELS: LevelDef[] = [
     name: "Hunter's Vigil",
     blurb: 'They come to break your walls.',
     config: {
-      cols: 17,
-      rows: 11,
-      entrance: { col: 0, row: 5 },
-      ritual: { col: 8, row: 5 },
+      cols: 13,
+      rows: 9,
+      entrance: { col: 0, row: 4 },
+      ritual: { col: 6, row: 4 },
       startEssence: 160,
       startStability: 10,
       waves: [
@@ -60,10 +81,10 @@ export const LEVELS: LevelDef[] = [
     name: 'Blessed March',
     blurb: 'Priests march at their front.',
     config: {
-      cols: 17,
-      rows: 11,
+      cols: 15,
+      rows: 10,
       entrance: { col: 0, row: 5 },
-      ritual: { col: 8, row: 5 },
+      ritual: { col: 7, row: 5 },
       startEssence: 170,
       startStability: 10,
       waves: [
@@ -80,10 +101,10 @@ export const LEVELS: LevelDef[] = [
     name: 'Arcane Purge',
     blurb: 'Battle mages unmake your works from afar.',
     config: {
-      cols: 19,
-      rows: 12,
-      entrance: { col: 0, row: 6 },
-      ritual: { col: 9, row: 6 },
+      cols: 17,
+      rows: 11,
+      entrance: { col: 0, row: 5 },
+      ritual: { col: 8, row: 5 },
       startEssence: 180,
       startStability: 12,
       waves: [
@@ -100,10 +121,10 @@ export const LEVELS: LevelDef[] = [
     name: 'The Grand Assault',
     blurb: 'Everything they have, all at once.',
     config: {
-      cols: 21,
-      rows: 13,
+      cols: 19,
+      rows: 12,
       entrance: { col: 0, row: 6 },
-      ritual: { col: 10, row: 6 },
+      ritual: { col: 9, row: 6 },
       startEssence: 200,
       startStability: 12,
       waves: [
