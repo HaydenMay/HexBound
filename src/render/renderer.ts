@@ -68,17 +68,21 @@ export class Renderer {
     this.webgl.toneMappingExposure = 1.15
 
     this.scene.background = new THREE.Color(0x0d0a16)
-    this.scene.fog = new THREE.Fog(0x0d0a16, 42, 95)
+    this.scene.fog = new THREE.Fog(0x181128, 28, 80)
 
     const ritualWorld = hexToWorld(game.grid.ritual)
-    this.target = new THREE.Vector3(ritualWorld.x, 0, ritualWorld.z)
-    this.dist = THREE.MathUtils.clamp(game.grid.rows * 1.45, 12, 22)
+    this.target = new THREE.Vector3(ritualWorld.x, 0, ritualWorld.z - game.grid.rows * 0.18)
+    const aspect = Math.max(canvas.clientWidth / Math.max(canvas.clientHeight, 1), 0.4)
+    const aspectFix = THREE.MathUtils.clamp(1.55 / aspect, 1, 2.5)
+    this.dist = THREE.MathUtils.clamp(game.grid.rows * 1.45 * aspectFix, 12, 34)
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200)
 
     const hemi = new THREE.HemisphereLight(0x9a8ac8, 0x14101f, 1.0)
     const dir = new THREE.DirectionalLight(0xfff2e0, 1.4)
     dir.position.set(12, 22, 8)
-    this.scene.add(hemi, dir)
+    const moonFill = new THREE.DirectionalLight(0x7a8aff, 0.5)
+    moonFill.position.set(-14, 18, -10)
+    this.scene.add(hemi, dir, moonFill)
 
     const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 48), new THREE.MeshBasicMaterial({ color: 0x120e1c }))
     ground.rotation.x = -Math.PI / 2
@@ -91,11 +95,11 @@ export class Renderer {
     this.tiles.position.y = -0.12
     this.scene.add(this.tiles)
 
-    const arrowGeo = new THREE.ConeGeometry(0.16, 0.42, 4)
+    const arrowGeo = new THREE.ConeGeometry(0.11, 0.3, 4)
     arrowGeo.rotateX(Math.PI / 2)
     this.arrows = new THREE.InstancedMesh(
       arrowGeo,
-      new THREE.MeshBasicMaterial({ color: 0x6fd8c8, transparent: true, opacity: 0.38, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color: 0x6fd8c8, transparent: true, opacity: 0.22, depthWrite: false }),
       game.grid.cols * game.grid.rows
     )
     this.scene.add(this.arrows)
@@ -106,6 +110,7 @@ export class Renderer {
       300
     )
     this.enemyMesh.count = 0
+    this.enemyMesh.frustumCulled = false
     this.scene.add(this.enemyMesh)
 
     this.allyMesh = new THREE.InstancedMesh(
@@ -114,6 +119,7 @@ export class Renderer {
       40
     )
     this.allyMesh.count = 0
+    this.allyMesh.frustumCulled = false
     this.scene.add(this.allyMesh)
 
     const charmGeo = new THREE.RingGeometry(0.34, 0.46, 20)
@@ -124,8 +130,10 @@ export class Renderer {
       300
     )
     this.charmMesh.count = 0
+    this.charmMesh.frustumCulled = false
     this.scene.add(this.charmMesh)
 
+    this.buildSky()
     this.buildRitual()
     this.buildEntrance()
 
@@ -195,6 +203,26 @@ export class Renderer {
     this.bindInput()
     window.addEventListener('resize', () => this.resize())
     this.resize()
+  }
+
+  private buildSky(): void {
+    const grid = this.game.grid
+    const minX = hexToWorld({ col: 0, row: grid.rows - 1 }).x - 10
+    const maxX = hexToWorld({ col: grid.cols - 1, row: 0 }).x + 10
+    const backZ = hexToWorld({ col: 0, row: 0 }).z - 2
+    const spireMat = new THREE.MeshBasicMaterial({ color: 0x130d20 })
+    for (let i = 0; i < 46; i++) {
+      const h = 5 + Math.random() * 9
+      const spire = new THREE.Mesh(new THREE.ConeGeometry(1.4 + Math.random() * 2.2, h, 5), spireMat)
+      spire.position.set(minX + Math.random() * (maxX - minX), h / 2 - 0.6, backZ + Math.random() * 4 - 3)
+      this.scene.add(spire)
+    }
+    for (let i = 0; i < 5; i++) {
+      const h = 13 + Math.random() * 6
+      const giant = new THREE.Mesh(new THREE.ConeGeometry(3, h, 5), spireMat)
+      giant.position.set(minX + ((i + 0.5) / 5) * (maxX - minX) + (Math.random() - 0.5) * 6, h / 2 - 0.6, backZ - 2 - Math.random() * 2)
+      this.scene.add(giant)
+    }
   }
 
   private buildRitual(): void {
@@ -311,7 +339,7 @@ export class Renderer {
       base.position.y = 0.12
       const body = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.72, 6), std(0x3a2f52))
       body.position.y = 0.6
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), std(0x2a1a3e, 0xc08aff, 1.4))
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), std(0x2a1a3e, 0xc08aff, 2.4))
       head.position.y = 1.02
       g.add(base, body, head)
       const whisperer = resident()
