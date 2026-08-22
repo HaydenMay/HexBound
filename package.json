@@ -12,10 +12,12 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@types/three": "^0.185.4",
     "eslint": "^10.9.0",
     "globals": "^17.11.0",

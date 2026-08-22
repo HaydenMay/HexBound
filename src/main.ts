@@ -95,6 +95,9 @@ try {
   }
 
   requestAnimationFrame(frame)
+
+  ;(window as unknown as Record<string, unknown>).__hexboundGame = game
+  ;(window as unknown as Record<string, unknown>).__hexboundRenderer = renderer
 } catch (err) {
   console.error(err)
   const webglFail = err instanceof Error && /webgl|context/i.test(err.message)

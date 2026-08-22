@@ -583,6 +583,10 @@ export class Renderer {
     }
   }
 
+  projectHexToScreen(col: number, row: number): ScreenPoint {
+    return this.projectPoint(hexToWorld({ col, row }))
+  }
+
   update(dt: number): void {
     this.time += dt
 
