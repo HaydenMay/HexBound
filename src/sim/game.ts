@@ -7,6 +7,7 @@ import { createStructure, currentTier, kindStats, type StructureInstance } from 
 import { hexDistance, hexToWorld, lerpHexToWorld, type HexCoord, type WorldPos } from './hex'
 import type {
   CauldronStats,
+  DamageType,
   EnemyDef,
   ForkOption,
   GameConfig,
@@ -52,6 +53,7 @@ export class Game {
   phase: GamePhase = 'building'
   waveIndex = 0
   readonly events = new Emitter()
+  readonly scouted = new Set<string>()
 
   private spawnQueue: { enemy: string; at: number }[] = []
   private clock = 0
@@ -166,11 +168,27 @@ export class Game {
 
   sellStructure(inst: StructureInstance): number {
     if (inst.destroyed) return 0
+    if (this.phase !== 'building') return 0
     const refund = this.refundFor(inst)
     this.essence += refund
     inst.sold = true
     this.destroyStructure(inst)
     return refund
+  }
+
+  damageEnemy(e: Enemy, amount: number, type: DamageType): void {
+    let mult = 1
+    if (e.def.weakness === type) {
+      for (const s of this.structures) {
+        if (s.destroyed) continue
+        const stats = kindStats(s)
+        if (stats.kind !== 'eye') continue
+        if (hexDistance(s.hex, e.cur) <= currentTier(s).radius) {
+          mult = Math.max(mult, 1 + stats.eye.ampBonus)
+        }
+      }
+    }
+    e.hp -= amount * mult
   }
 
   startWave(): void {
@@ -208,6 +226,8 @@ export class Game {
     this.applyAllies(dt)
     this.applyStructureAttacks(dt)
     this.applyGroves()
+    this.applyFoeAbilities(dt)
+    this.applyEyes()
 
     const breaches: Enemy[] = []
     for (const e of this.enemies) {
@@ -270,6 +290,7 @@ export class Game {
     for (const s of this.structures) {
       const stats = kindStats(s)
       if (stats.kind !== 'idol') continue
+      if (s.disabled > 0) continue
       const idol = stats.idol
       s.cooldown -= dt
       if (s.cooldown > 0) continue
@@ -278,7 +299,7 @@ export class Game {
       if (owned >= idol.concurrent) continue
       const radius = currentTier(s).radius
       const target = this.enemies
-        .filter(e => !e.charmedBy && hexDistance(s.hex, e.cur) <= radius)
+        .filter(e => !e.charmedBy && !e.def.charmImmune && hexDistance(s.hex, e.cur) <= radius)
         .sort((a, b) => hexDistance(s.hex, a.cur) - hexDistance(s.hex, b.cur))[0]
       if (!target) continue
       target.charmedBy = key
@@ -307,6 +328,7 @@ export class Game {
   sacrifice(inst: StructureInstance): boolean {
     const stats = kindStats(inst)
     if (stats.kind !== 'well') return false
+    if (inst.disabled > 0) return false
     if (inst.cooldown > 0) return false
     if (!this.allies.length) return false
     let nearest = this.allies[0]
@@ -324,7 +346,7 @@ export class Game {
     inst.contributed = true
     for (const e of this.enemies) {
       if (!e.charmedBy && hexDistance(inst.hex, e.cur) <= well.sacrificeRadius) {
-        e.hp -= well.sacrificeDamage
+        this.damageEnemy(e, well.sacrificeDamage, 'burst')
       }
     }
     this.events.emit<NovaPayload>('nova', {
@@ -341,6 +363,7 @@ export class Game {
     if (!cauldron) return
     for (const s of this.structures) {
       if (kindStats(s).kind !== 'cauldron') continue
+      if (s.disabled > 0) continue
       const radius = currentTier(s).radius
       for (const e of this.enemies) {
         if (!e.inAura && !e.charmedBy && hexDistance(s.hex, e.cur) <= radius) {
@@ -368,7 +391,7 @@ export class Game {
         e.poisonedTime += dt
         let dps = e.poisonStacks * cauldron.dpsPerStack
         if (cauldron.frenzyPerSec) dps *= 1 + cauldron.frenzyPerSec * e.poisonedTime
-        e.hp -= dps * dt
+        this.damageEnemy(e, dps * dt, 'poison')
       }
     }
   }
@@ -398,6 +421,7 @@ export class Game {
     for (const s of this.structures) {
       const stats = kindStats(s)
       if (stats.kind !== 'totem') continue
+      if (s.disabled > 0) continue
       const totem = stats.totem
       s.cooldown -= dt
       if (s.cooldown > 0) continue
@@ -423,7 +447,7 @@ export class Game {
         hit.push(best)
         last = best
       }
-      for (const e of hit) e.hp -= totem.damage
+      for (const e of hit) this.damageEnemy(e, totem.damage, 'shock')
       s.cooldown = totem.cooldown
       s.contributed = true
       const points: WorldPos[] = [hexToWorld(s.hex)]
@@ -447,7 +471,7 @@ export class Game {
         }
       }
       if (!best) continue
-      best.hp -= a.dps * dt
+      this.damageEnemy(best, a.dps * dt, 'poison')
       if (a.attackCooldown <= 0) {
         a.attackCooldown = 0.4
         this.events.emit<LightningPayload>('lightning', {
@@ -564,9 +588,86 @@ export class Game {
     }
   }
 
+  private applyFoeAbilities(dt: number): void {
+    for (const s of this.structures) {
+      if (s.disabled > 0) s.disabled -= dt
+    }
+    const summoned: Enemy[] = []
+    for (const e of this.enemies) {
+      const d = e.def
+      if (d.cleanse) {
+        e.cleanseClock += dt
+        if (e.cleanseClock >= d.cleanse.interval) {
+          e.cleanseClock %= d.cleanse.interval
+          let cleaned = false
+          for (const o of this.enemies) {
+            if (o === e || o.poisonRemaining <= 0) continue
+            if (hexDistance(e.cur, o.cur) <= d.cleanse.radius) {
+              o.poisonStacks = 0
+              o.poisonRemaining = 0
+              o.stackProgress = 0
+              cleaned = true
+            }
+          }
+          if (cleaned) {
+            this.events.emit<NovaPayload>('nova', {
+              pos: lerpHexToWorld(e.cur, e.next, e.t),
+              radius: d.cleanse.radius,
+              color: 0xfff0c0
+            })
+          }
+        }
+      }
+      if (d.silence) {
+        e.silenceClock += dt
+        if (e.silenceClock >= d.silence.interval) {
+          e.silenceClock %= d.silence.interval
+          for (const s of this.structures) {
+            if (s.destroyed || s.disabled > 0) continue
+            const kind = kindStats(s).kind
+            if (kind !== 'cauldron' && kind !== 'totem' && kind !== 'idol' && kind !== 'ring' && kind !== 'well') continue
+            if (hexDistance(e.cur, s.hex) <= d.silence.radius) {
+              s.disabled = Math.max(s.disabled, d.silence.duration)
+              this.events.emit<NovaPayload>('nova', { pos: hexToWorld(s.hex), radius: 1.2, color: 0xffd060 })
+            }
+          }
+        }
+      }
+      if (d.summon) {
+        e.summonClock += dt
+        if (e.summonClock >= d.summon.interval) {
+          e.summonClock %= d.summon.interval
+          for (let i = 0; i < d.summon.count; i++) {
+            summoned.push(new Enemy(this.enemyDefs[d.summon.enemy], this.grid.entrance))
+          }
+          this.events.emit<NovaPayload>('nova', { pos: hexToWorld(this.grid.entrance), radius: 1.5, color: 0xc05a4a })
+        }
+      }
+    }
+    for (const s of summoned) {
+      this.enemies.push(s)
+      this.events.emit('enemySpawned', s)
+    }
+  }
+
+  private applyEyes(): void {
+    for (const s of this.structures) {
+      if (s.destroyed) continue
+      if (kindStats(s).kind !== 'eye') continue
+      const radius = currentTier(s).radius
+      for (const e of this.enemies) {
+        if (!this.scouted.has(e.def.id) && hexDistance(s.hex, e.cur) <= radius) {
+          this.scouted.add(e.def.id)
+          this.events.emit('traitRevealed', e.def.id)
+        }
+      }
+    }
+  }
+
   private tryRaiseAlly(hex: HexCoord): void {
     if (this.allies.length >= ALLY_CAP) return
     for (const s of this.structures) {
+      if (s.disabled > 0) continue
       const stats = kindStats(s)
       if (stats.kind !== 'ring') continue
       const ring = stats.ring

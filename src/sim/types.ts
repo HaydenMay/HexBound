@@ -1,5 +1,7 @@
 import type { HexCoord } from './hex'
 
+export type DamageType = 'poison' | 'shock' | 'burst'
+
 export interface EnemyDef {
   id: string
   name: string
@@ -12,6 +14,13 @@ export interface EnemyDef {
   curseResist?: number
   structureDamage?: number
   structureRange?: number
+  charmImmune?: boolean
+  cleanse?: { radius: number; interval: number }
+  silence?: { radius: number; interval: number; duration: number }
+  summon?: { enemy: string; count: number; interval: number }
+  weakness?: DamageType
+  boss?: boolean
+  intro?: { title: string; lines: string[] }
 }
 
 export interface WaveGroup {
@@ -72,6 +81,10 @@ export interface MirrorStats {
   reflectFactor: number
 }
 
+export interface EyeStats {
+  ampBonus: number
+}
+
 export type KindStats = {
   kind: 'cauldron'
   cauldron: CauldronStats
@@ -93,6 +106,9 @@ export type KindStats = {
 } | {
   kind: 'mirror'
   mirror: MirrorStats
+} | {
+  kind: 'eye'
+  eye: EyeStats
 } | {
   kind: 'wall'
 }

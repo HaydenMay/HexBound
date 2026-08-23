@@ -17,6 +17,9 @@ export class Enemy {
   charmedBy: string | null = null
   charmRemaining = 0
   vfxClock = 0
+  cleanseClock = 0
+  silenceClock = 0
+  summonClock = 0
 
   constructor(readonly def: EnemyDef, spawn: HexCoord) {
     this.id = Enemy.nextId++

@@ -293,6 +293,41 @@ export const STRUCTURE_DEFS: Record<string, StructureDef> = {
         mirror: { reflectChance: 0.65, reflectFactor: 1.5 }
       }
     ]
+  },
+  watchingeye: {
+    id: 'watchingeye',
+    name: 'Watching Eye',
+    blurb: 'Reveals foe weaknesses and sharpens them against their bane.',
+    cost: 35,
+    blocksPath: false,
+    hp: 60,
+    color: 0xd8a040,
+    tiers: [
+      {
+        kind: 'eye',
+        label: 'Half-Open Lid',
+        desc: 'Foes inside have their weakness revealed and suffer +15% damage from it.',
+        cost: 0,
+        radius: 3,
+        eye: { ampBonus: 0.15 }
+      },
+      {
+        kind: 'eye',
+        label: 'Wide Gaze',
+        desc: 'Wider sight, and the weakness bites +25% deeper inside.',
+        cost: 40,
+        radius: 3.75,
+        eye: { ampBonus: 0.25 }
+      },
+      {
+        kind: 'eye',
+        label: 'All-Seeing Iris',
+        desc: 'The gaze reaches far; the bane strikes +35% harder within.',
+        cost: 60,
+        radius: 4.5,
+        eye: { ampBonus: 0.35 }
+      }
+    ]
   }
 }
 
@@ -304,5 +339,6 @@ export const STRUCTURE_ORDER = [
   'mushroomring',
   'whisperingidol',
   'moonwell',
-  'spellmirror'
+  'spellmirror',
+  'watchingeye'
 ]

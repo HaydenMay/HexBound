@@ -13,6 +13,7 @@ export interface StructureInstance {
   invested: number
   contributed: boolean
   sold: boolean
+  disabled: number
 }
 
 export function createStructure(def: StructureDef, hex: HexCoord): StructureInstance {
@@ -29,7 +30,8 @@ export function createStructure(def: StructureDef, hex: HexCoord): StructureInst
     destroyed: false,
     invested: def.cost,
     contributed: false,
-    sold: false
+    sold: false,
+    disabled: 0
   }
 }
 
@@ -51,5 +53,6 @@ export function kindStats(inst: StructureInstance): KindStats {
   if (t.kind === 'idol') return { kind: 'idol', idol: t.idol }
   if (t.kind === 'well') return { kind: 'well', well: t.well }
   if (t.kind === 'mirror') return { kind: 'mirror', mirror: t.mirror }
+  if (t.kind === 'eye') return { kind: 'eye', eye: t.eye }
   return { kind: 'wall' }
 }
