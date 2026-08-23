@@ -5,7 +5,11 @@ const TILE_H := 0.18
 const ENEMY_RED := Color(0.9, 0.25, 0.25)
 const POISON_GREEN := Color(0.45, 0.85, 0.4)
 
+var sim: SimGame
 var cam: Camera3D
+var target := Vector3.ZERO
+var dist := 22.0
+var cam_blend := 0.0
 var ritual_node: MeshInstance3D
 var ritual_flash := 0.0
 var time := 0.0
@@ -14,6 +18,16 @@ var _tiles_root: Node3D
 var _towers := {}
 var _enemies := {}
 var _residents: Array = []
+var _arrows_mm: MultiMeshInstance3D
+
+
+func bind(game: SimGame) -> void:
+	sim = game
+	game.events.on("fieldChanged", _on_field_changed)
+
+
+func _on_field_changed(_p = null) -> void:
+	_rebuild_arrows()
 
 
 func setup(config: Dictionary) -> void:
@@ -33,6 +47,9 @@ func setup(config: Dictionary) -> void:
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color(0.055, 0.04, 0.09)
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.604, 0.541, 0.784)
+	e.ambient_light_energy = 0.55
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.094, 0.07, 0.157)
 	e.fog_density = 0.012
@@ -43,11 +60,37 @@ func setup(config: Dictionary) -> void:
 	add_child(_tiles_root)
 	_build_field(config)
 
+	var ground := MeshInstance3D.new()
+	var disc := PlaneMesh.new()
+	disc.size = Vector2(160.0, 160.0)
+	ground.mesh = disc
+	var gm := StandardMaterial3D.new()
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.albedo_color = Color(0.071, 0.055, 0.11)
+	ground.material_override = gm
+	ground.position.y = -0.35
+	add_child(ground)
+
 	_build_ridge(config)
 
 	cam = Camera3D.new()
-	cam.fov = 55.0
-	_place_camera(config)
+	cam.fov = 50.0
+	cam.near = 0.1
+	cam.far = 200.0
+	_init_camera(config)
+	add_child(cam)
+	cam.make_current()
+
+	_arrows_mm = MultiMeshInstance3D.new()
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = _arrow_mesh()
+	mm.instance_count = int(config["cols"]) * int(config["rows"])
+	_arrows_mm.multimesh = mm
+	_arrows_mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_arrows_mm)
+	if sim != null:
+		_rebuild_arrows()
 
 
 func _build_field(config: Dictionary) -> void:
@@ -118,25 +161,72 @@ func _build_ridge(config: Dictionary) -> void:
 		_tiles_root.add_child(spire)
 
 
-func _place_camera(config: Dictionary) -> void:
-	var cols := int(config["cols"])
+func _init_camera(config: Dictionary) -> void:
 	var rows := int(config["rows"])
-	var center := Vector3(float(cols) * HexLib.SQRT3 / 2.0, 0, float(rows) * 1.5 / 2.0)
-	var pivot := Node3D.new()
-	pivot.position = center
-	add_child(pivot)
+	var ritual: Dictionary = config["ritual"]
+	var rw := HexLib.hex_to_world(ritual)
+	target = Vector3(rw["x"], 0.0, rw["z"] - float(rows) * 0.18)
 	var aspect := 1.777
 	if cam.get_viewport() != null:
 		aspect = float(cam.get_viewport().get_visible_rect().size.x) / maxf(float(cam.get_viewport().get_visible_rect().size.y), 1.0)
 	var factor := clampf(1.55 / aspect, 1.0, 2.5)
-	var dist := (float(cols) * HexLib.SQRT3 * 0.62) * factor
-	cam.position = Vector3(0, dist * sin(deg_to_rad(52)), dist * cos(deg_to_rad(52)))
-	cam.rotation_degrees = Vector3(-52, 0, 0)
-	pivot.add_child(cam)
+	dist = clampf(float(rows) * 1.45 * factor, 12.0, 34.0)
+
+
+func _clamp_target() -> void:
+	var g := sim.grid
+	var min_x: float = HexLib.hex_to_world({"col": 0, "row": 0})["x"] - 3.0
+	var max_x: float = HexLib.hex_to_world({"col": g.cols - 1, "row": g.rows - 1})["x"] + 3.0
+	target.x = clampf(target.x, min_x, max_x)
+	target.z = clampf(target.z, -3.0, 1.5 * float(g.rows - 1) + 3.0)
+
+
+func _arrow_mesh() -> Mesh:
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.11
+	cone.height = 0.3
+	cone.radial_segments = 4
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	m.albedo_color = Color(0.435, 0.847, 0.784, 0.22)
+	cone.material = m
+	return cone
+
+
+func _rebuild_arrows() -> void:
+	var mm := _arrows_mm.multimesh
+	var n := 0
+	for row in sim.grid.rows:
+		for col in sim.grid.cols:
+			var c := {"col": col, "row": row}
+			if not sim.field.reachable(c):
+				continue
+			var next = sim.field.next_step(c)
+			if next == null:
+				continue
+			var from := HexLib.hex_to_world(c)
+			var to := HexLib.hex_to_world(next)
+			var yaw := atan2(to["x"] - from["x"], to["z"] - from["z"])
+			var basis := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, PI / 2.0)
+			mm.set_instance_transform(n, Transform3D(basis, Vector3(from["x"], 0.14, from["z"])))
+			n += 1
+	mm.visible_instance_count = n
 
 
 func sync(game: SimGame, dt: float) -> void:
 	time += dt
+	sim = game
+
+	var want_battle: bool = game.phase != "building"
+	cam_blend += clampf((1.0 if want_battle else 0.0) - cam_blend, -1.1 * dt, 1.1 * dt)
+	var cam_e := cam_blend * cam_blend * (3.0 - 2.0 * cam_blend)
+	var h_factor := lerpf(0.92, 0.58, cam_e)
+	var z_factor := lerpf(0.72, 0.94, cam_e)
+	cam.position = Vector3(target.x, dist * h_factor, target.z + dist * z_factor)
+	cam.look_at(Vector3(target.x, 0.0, target.z + float(game.grid.rows) * 0.26 * cam_e), Vector3.UP)
 
 	for key in _towers.keys():
 		if not game.by_hex.has(key):

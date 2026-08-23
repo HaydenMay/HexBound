@@ -10,6 +10,7 @@ func _ready() -> void:
 	var config: Dictionary = LevelsData.LEVELS[0]["config"]
 	game = SimGame.new(config, {"enemies": EnemiesData.DEFS, "structures": StructuresData.DEFS})
 	view = BattleView.new()
+	view.bind(game)
 	add_child(view)
 	view.setup(config)
 	game.events.on("enemyBreached", func(_p): view.flash_breach(game.grid.ritual))
