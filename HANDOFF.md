@@ -15,7 +15,7 @@
 
 Critic round (fresh-context judge ran both suites) passed after fixes in `d821172`: stable-order tie-breaks for spawn + totem sorts (wave 4 has an exact t=8 tie), TS-falsy semantics for spreadRadius/frenzyPerSec, JS Math.round parity in cube rounding.
 
-**→ Resume at item 22 (flip CI/deploy). Godot MCP verified loaded (4.6.1.stable responds).**
+**→ Migration complete pending one manual step: open the live Pages URL on an iPhone once to confirm the Godot build plays on-device (the earlier TS-era spike already passed on-device).**
 
 ## Locked decisions
 
@@ -23,7 +23,7 @@ GDScript (not C# — no web export) · single-threaded Web export · side-by-sid
 
 ## Remaining — Godot migration item 22
 
-22. **Flip CI/deploy** — Actions: `godot --headless` import + GUT gate + `--export-release "Web"` → Pages artifact under `/HexBound/`; verify live URL on iPhone once; TS stack archived to `legacy-ts`; rewrite AGENTS.md commands/layout/gotchas for Godot; update README/TOWERS/VISUAL_NOTES pointers.
+22. ✅ **Flip CI/deploy** — `.github/workflows/deploy.yml` now caches Godot 4.6.1 linux + export templates, runs import → GUT gate → `--export-release "Web"` → ships `dist-godot/` to Pages under `/HexBound/` (single-threaded wasm, GUT/tests excluded from the pack). TS stack archived to `legacy-ts/` (vitest still green from inside it); `wasm-smoke.mjs` added as the local boot gate (verified: wasm+pck load, zero page errors, menu renders); AGENTS.md rewritten for the Godot stack; README/TOWERS/VISUAL_NOTES pointers updated.
 
 ### Migration definition of done
 

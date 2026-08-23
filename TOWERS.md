@@ -160,4 +160,4 @@ Every level runs Small / Medium / Large via the menu picker (applied at battlefi
 
 ## Assets policy
 
-Everything visual is procedural Three.js geometry built in `makeStructureMesh` (`src/render/renderer.ts`) — no image assets today, by design. If hand-drawn art ever enters the picture: transparent-background PNGs around ~64px drop straight in as sprite materials per structure kind at the top of `makeStructureMesh`; the resident characters and tick animations stay procedural regardless.
+Everything visual is procedural Godot primitive meshes built in `TowerMesh.build` (`godot/scripts/render/tower_mesh.gd`) — no image assets today, by design. If hand-drawn art ever enters the picture: transparent-background PNGs around ~64px drop straight in as sprite textures per structure kind at the top of `TowerMesh.build`; the resident characters and tick animations stay procedural regardless.

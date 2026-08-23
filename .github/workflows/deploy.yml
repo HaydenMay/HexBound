@@ -21,23 +21,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Cache Godot engine + export templates
+        id: godot-cache
+        uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: npm
+          path: |
+            godot-engine
+            export-templates
+          key: godot-4.6.1-stable
 
-      - run: npm ci
+      - name: Download Godot 4.6.1 (linux editor)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -L --fail -o godot.zip https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          mkdir -p godot-engine
+          mv Godot_v4.6.1-stable_linux.x86_64 godot-engine/godot
 
-      # Lint, typecheck, build and test. A broken build never reaches Pages.
-      - run: npm run lint
-      - run: npm run test
-      - run: npm run build
+      - name: Download export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -L --fail -o templates.tpz https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_export_templates.tpz
+          mkdir -p export-templates
+          unzip -q templates.tpz -d export-templates
+
+      - name: Install engine + templates
+        run: |
+          sudo install -m 755 godot-engine/godot /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates
+          mv export-templates/templates ~/.local/share/godot/export_templates/4.6.1.stable
+
+      # Import assets so the GUT run and export start from a warm .godot/
+      - name: Import project
+        run: godot --headless --path godot --import
+
+      # A red test gate never reaches Pages.
+      - name: GUT test gate
+        run: godot --headless --path godot -s addons/gut/gut_cmdln.gd
+
+      - name: Export web build
+        run: |
+          mkdir -p dist-godot
+          godot --headless --path godot --export-release "Web" "../dist-godot/index.html"
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: dist-godot
 
   deploy:
     needs: build

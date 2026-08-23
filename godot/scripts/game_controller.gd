@@ -23,6 +23,40 @@ func _ready() -> void:
 	unlocked_levels = SaveStore.load_save()["unlockedLevels"]
 	field_size = SaveStore.load_field_size()
 	_show_menu()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shot="):
+			_run_shot(a.get_slice("=", 1))
+			return
+
+
+func _run_shot(mode: String) -> void:
+	await get_tree().process_frame
+	_start_level(0)
+	game.essence = 999
+	var showcase := [
+		["spellmirror", 1, 2],
+		["hexcauldron", 3, 2],
+		["bonepalisade", 2, 4],
+		["thorngrove", 2, 1],
+		["stormtotem", 4, 4],
+		["mushroomring", 7, 2],
+		["whisperingidol", 7, 4],
+		["moonwell", 8, 2],
+		["watchingeye", 5, 3]
+	]
+	for s in showcase:
+		var hex := {"col": int(s[1]), "row": int(s[2])}
+		if game.can_place(s[0], hex)["ok"]:
+			game.place(s[0], hex)
+	game.start_wave()
+	await get_tree().create_timer(5.0).timeout
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var dir := ProjectSettings.globalize_path("res://").path_join("../screenshots")
+	DirAccess.make_dir_recursive_absolute(dir)
+	img.save_png(dir.path_join("godot-battle-%s.png" % mode))
+	print("SHOT_SAVED %s" % dir.path_join("godot-battle-%s.png" % mode))
+	get_tree().quit()
 
 
 func _show_menu() -> void:

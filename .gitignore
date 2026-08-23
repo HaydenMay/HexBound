@@ -1,8 +1,8 @@
 node_modules/
 dist/
+dist-godot/
 test-results/
 playwright-report/
-blob-report/
 screenshots/*.png
 *.log
 npm-debug.log*
@@ -13,3 +13,7 @@ npm-debug.log*
 Thumbs.db
 .godot/
 spike-build/
+legacy-ts/node_modules/
+legacy-ts/dist/
+legacy-ts/test-results/
+legacy-ts/playwright-report/

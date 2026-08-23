@@ -1,6 +1,6 @@
 # VISUAL_NOTES.md — Why the battlefield looks the way it does
 
-Best shots live in [`docs/screenshots/`](docs/screenshots/) (desktop 1280×800, mobile Pixel 7 portrait), captured mid-wave with all eight structures placed via the `SHOTS=1` Playwright harness (`e2e/screenshot.spec.ts`).
+Best shots live in [`docs/screenshots/`](docs/screenshots/) (desktop 1280×800, mobile portrait). The TS-era baselines (`battle-*.png`) were captured mid-wave with all structures placed via the `SHOTS=1` Playwright harness; the current Godot shots (`godot-battle-*.png`) use the same showcase composition via `godot --path godot --resolution 1280x800 -- --shot=desktop` (see AGENTS.md).
 
 ## What changed, and why it works
 
