@@ -4,12 +4,18 @@ extends Node3D
 const TILE_H := 0.18
 const ENEMY_RED := Color(0.9, 0.25, 0.25)
 const POISON_GREEN := Color(0.45, 0.85, 0.4)
+const VALID_COLOR := Color(0x7fe3a0)
+const INVALID_COLOR := Color(0xff5a5a)
 
 var sim: SimGame
 var cam: Camera3D
 var target := Vector3.ZERO
 var dist := 22.0
 var cam_blend := 0.0
+var selected_def_id := ""
+var pending_hex = null
+var hover_hex = null
+var has_hover := false
 var ritual_node: MeshInstance3D
 var ritual_flash := 0.0
 var time := 0.0
@@ -19,6 +25,12 @@ var _towers := {}
 var _enemies := {}
 var _residents: Array = []
 var _arrows_mm: MultiMeshInstance3D
+var _select_ring: MeshInstance3D
+var _ghost: Node3D = null
+var _ghost_def_id := ""
+var _ghost_valid := false
+var _ghost_ring_mat: StandardMaterial3D
+var _ghost_disc_mat: StandardMaterial3D
 
 
 func bind(game: SimGame) -> void:
@@ -91,6 +103,21 @@ func setup(config: Dictionary) -> void:
 	add_child(_arrows_mm)
 	if sim != null:
 		_rebuild_arrows()
+
+	_select_ring = MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.82
+	ring_mesh.outer_radius = 0.95
+	_select_ring.mesh = ring_mesh
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	sm.albedo_color = Color(0.698, 0.42, 1.0, 0.9)
+	_select_ring.material_override = sm
+	_select_ring.position.y = 0.16
+	_select_ring.visible = false
+	add_child(_select_ring)
 
 
 func _build_field(config: Dictionary) -> void:
@@ -285,6 +312,128 @@ func sync(game: SimGame, dt: float) -> void:
 	var pulse := 0.7 + (game.progress / 100.0) * 1.6 + ritual_flash * 3.0
 	(ritual_node.material_override as StandardMaterial3D).emission_energy_multiplier = pulse
 	ritual_flash = maxf(ritual_flash - dt * 1.6, 0.0)
+
+	_select_ring.rotation.y += dt * 0.8
+	_update_ghost()
+
+
+func set_selected(inst) -> void:
+	if inst == null:
+		_select_ring.visible = false
+		return
+	var w: Dictionary = HexLib.hex_to_world(inst["hex"])
+	_select_ring.position = Vector3(w["x"], 0.16, w["z"])
+	_select_ring.visible = true
+
+
+func pick_world(screen: Vector2) -> Dictionary:
+	var origin := cam.project_ray_origin(screen)
+	var normal := cam.project_ray_normal(screen)
+	if absf(normal.y) < 0.00001:
+		return {}
+	var tt := -origin.y / normal.y
+	if tt <= 0.0:
+		return {}
+	var p := origin + normal * tt
+	return {"x": p.x, "z": p.z}
+
+
+func pick_hex(screen: Vector2):
+	var at := pick_world(screen)
+	if at.is_empty():
+		return null
+	return HexLib.world_to_hex(at["x"], at["z"])
+
+
+func pick_enemy(at: Dictionary):
+	var best = null
+	var best_d := INF
+	for en in sim.enemies:
+		var p: Dictionary = HexLib.lerp_hex_to_world(en.cur, en.next, en.t)
+		var d := Vector2(p["x"] - float(at["x"]), p["z"] - float(at["z"])).length()
+		if d <= 0.9 + 0.15 * float(en.def.get("scale", 1.0)) and d < best_d:
+			best = en
+			best_d = d
+	return best
+
+
+func world_per_pixel() -> float:
+	var h := maxf(float(cam.get_viewport().get_visible_rect().size.y), 1.0)
+	return 2.0 * dist * tan(deg_to_rad(cam.fov) / 2.0) / h
+
+
+func _update_ghost() -> void:
+	var hex = pending_hex if pending_hex != null else hover_hex
+	if selected_def_id == "" or hex == null or not sim.grid.in_bounds(hex) or (pending_hex == null and not has_hover):
+		if _ghost != null:
+			_ghost.visible = false
+		return
+	if _ghost_def_id != selected_def_id or _ghost == null:
+		_build_ghost(selected_def_id)
+	var valid: bool = sim.can_place(selected_def_id, hex)["ok"]
+	var w: Dictionary = HexLib.hex_to_world(hex)
+	_ghost.visible = true
+	_ghost.position = Vector3(w["x"], 0.0, w["z"])
+	if valid != _ghost_valid:
+		var col := VALID_COLOR if valid else INVALID_COLOR
+		_ghost_ring_mat.albedo_color = Color(col.r, col.g, col.b, 0.4)
+		_ghost_disc_mat.albedo_color = Color(col.r, col.g, col.b, 0.35)
+		_ghost_valid = valid
+
+
+func _build_ghost(def_id: String) -> void:
+	if _ghost != null:
+		_ghost.queue_free()
+	var def: Dictionary = StructuresData.DEFS[def_id]
+	var tier: Dictionary = def["tiers"][0]
+	var g := Node3D.new()
+	var mesh := TowerMesh.build(def, tier["kind"])
+	_make_translucent(mesh)
+	g.add_child(mesh)
+
+	var r := maxf(float(tier["radius"]) - 0.08, 0.1)
+	_ghost_ring_mat = _flat_mat(Color(VALID_COLOR.r, VALID_COLOR.g, VALID_COLOR.b, 0.4))
+	var ring := MeshInstance3D.new()
+	var rmesh := TorusMesh.new()
+	rmesh.inner_radius = r
+	rmesh.outer_radius = float(tier["radius"])
+	ring.mesh = rmesh
+	ring.material_override = _ghost_ring_mat
+	ring.position.y = 0.07
+	g.add_child(ring)
+
+	_ghost_disc_mat = _flat_mat(Color(VALID_COLOR.r, VALID_COLOR.g, VALID_COLOR.b, 0.35))
+	var disc := MeshInstance3D.new()
+	var dmesh := CylinderMesh.new()
+	dmesh.top_radius = 0.9
+	dmesh.bottom_radius = 0.9
+	dmesh.height = 0.02
+	disc.mesh = dmesh
+	disc.material_override = _ghost_disc_mat
+	disc.position.y = 0.05
+	g.add_child(disc)
+
+	_ghost = g
+	_ghost_def_id = def_id
+	add_child(g)
+
+
+func _make_translucent(node: Node) -> void:
+	for child in node.get_children():
+		if child is MeshInstance3D and child.material_override is StandardMaterial3D:
+			var m := (child.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			m.albedo_color.a *= 0.5
+			child.material_override = m
+
+
+func _flat_mat(col: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	m.albedo_color = col
+	return m
 
 
 func flash_breach(at: Dictionary) -> void:

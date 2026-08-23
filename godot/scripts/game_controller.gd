@@ -1,9 +1,15 @@
 extends Node3D
 
+signal warned(reason: String)
+
 var game: SimGame
 var view: BattleView
+var input_ctrl: InputController
 var paused := false
 var speed := 1.0
+
+var _selected_structure = null
+var _selected_enemy = null
 
 
 func _ready() -> void:
@@ -13,6 +19,14 @@ func _ready() -> void:
 	view.bind(game)
 	add_child(view)
 	view.setup(config)
+
+	input_ctrl = InputController.new()
+	input_ctrl.view = view
+	add_child(input_ctrl)
+	input_ctrl.tapped.connect(_on_tap)
+	input_ctrl.cancel_requested.connect(_clear_selection)
+	input_ctrl.action.connect(_on_action)
+
 	game.events.on("enemyBreached", func(_p): view.flash_breach(game.grid.ritual))
 
 
@@ -28,8 +42,52 @@ func _process(dt: float) -> void:
 		view.sync(game, dt)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_P:
+func _on_tap(hex: Dictionary, is_touch: bool, enemy) -> void:
+	if enemy != null:
+		view.pending_hex = null
+		_selected_structure = null
+		_selected_enemy = enemy
+		view.set_selected(null)
+		return
+	var inst = game.structure_at(hex)
+	if inst != null:
+		view.pending_hex = null
+		_selected_enemy = null
+		_selected_structure = inst
+		view.set_selected(inst)
+		return
+	var def_id: String = view.selected_def_id
+	if def_id != "":
+		var res := game.can_place(def_id, hex)
+		if not res["ok"]:
+			warned.emit(res["reason"])
+			return
+		if is_touch:
+			var p = view.pending_hex
+			if p == null or not HexLib.same_hex(p, hex):
+				view.pending_hex = hex.duplicate()
+				return
+		view.pending_hex = null
+		game.place(def_id, hex)
+		return
+	_clear_selection()
+
+
+func _clear_selection() -> void:
+	view.pending_hex = null
+	view.selected_def_id = ""
+	_selected_structure = null
+	_selected_enemy = null
+	view.set_selected(null)
+
+
+func _on_action(name: String) -> void:
+	if name.begins_with("def:"):
+		view.selected_def_id = name.substr(4)
+	elif name == "pause":
 		paused = not paused
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		pass
+	elif name == "space":
+		if game.phase == "building":
+			game.start_wave()
+		else:
+			paused = not paused
