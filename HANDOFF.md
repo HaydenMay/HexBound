@@ -1,13 +1,13 @@
 # HANDOFF — P2a/P2b in progress
 
-Resume with `/gauntlet-loop finish P2a and P2b per HANDOFF.md`. Work through **Remaining** top to bottom; do not stop until **Definition of done** is met.
+Resume with `/gauntlet-loop finish P2a/P2b (items 1–11), then Godot migration items 12–22 in order.` Work through **Remaining** then **Godot migration** top to bottom; do not stop until each section's definition of done is met.
 
 ## Already committed on main (safe)
 
 - `5f5e4e3` P1 interactions: sell/dismantle + refund preview, two-tap confirm on touch, battle camera blend, gem palette
 - `53542d6` gauntlet-loop skill run-to-completion contract + AGENTS.md long-running rules
 
-## WIP commit (local only, DO NOT PUSH until Definition of done)
+## Foundation commit (pushed to main; UI/renderer/e2e work below remains)
 
 Sim/data foundation for P2a+P2b is complete and passing 46 unit tests + tsc build:
 
@@ -37,3 +37,23 @@ Design law (do not violate): no enemy ever erases applied debuffs; paladin clean
 ## Definition of done
 
 All four gates green AND new m4 tests present AND docs updated AND everything committed AND pushed to main.
+
+## Godot migration (starts only after Definition of done above)
+
+Locked decisions: GDScript (not C# — no web export) · single-threaded Web export · side-by-side under `godot/` while TS stays live on Pages · parity before visuals · engine at `C:\Users\mayha\Documents\Godot\` (console exe for MCP output capture).
+
+12. **Tooling** — GODOT_PATH already points at the console exe in `opencode.json`; verify godot-mcp end-to-end: get_godot_version, launch_editor, run_project + get_debug_output capture.
+13. **iPhone spike (STOP GATE)** — minimal Godot project: hex field, one tower, one walking enemy; single-threaded Web export preset; serve over LAN (`npx http-server`, same Wi-Fi) and play on the user's iPhone. Pass = acceptable load + playable touch controls on device; fail = stop and reassess with user before any further porting.
+14. **Bootstrap `godot/`** — project.godot, `scripts/sim/`, `scripts/data/`, `scenes/`, GUT addon installed, `.gitignore` += `.godot/`, one smoke test green under `godot --headless`.
+15. **Port data tables** — `src/data/{structures,enemies,waves,levels,level1}.ts` → GDScript modules; every cost/radius/dps/hp/wave value must match TS exactly (parity test compares both).
+16. **Port sim core** — hex/grid/flowfield/game/enemy/ally/structures/types/events → GDScript; port the ~46 Vitest assertions into GUT suites mirroring hex/game/m2/m3/m4 coverage; all green headless.
+17. **Renderer rebuild** — hex field mesh, procedural MeshInstance3D towers (all 9 kinds incl. watching eye), two-tone warm-key + moon-fill lighting, violet fog, quiet path-flow arrows, red capsules w/ poison tint, resident witches w/ idle animation, aspect-aware camera + battle blend (per VISUAL_NOTES.md).
+18. **Input & camera** — raycast pick/place/tap/select, pan/pinch zoom, two-tap confirm on touch, Escape/right-click cancel — UX parity with TS version.
+19. **HUD Control nodes** — palette (9 cards), topbar ritual/stability, wave/speed/pause, structure + enemy inspect panels (scout-gated weakness row), boss-intro banner, destruction warnings.
+20. **Saves & menu** — `user://` JSON saves compatible with current schema, level select with locks, campaign map-size picker (11x7..19x12).
+21. **Parity sweep** — design.md walked § by § against the running game; captured screenshots (desktop 1280x800 + mobile portrait) judged side-by-side against `docs/screenshots/` baseline; fix every gap named.
+22. **Flip CI/deploy** — Actions: `godot --headless` import + GUT gate + `--export-release "Web"` → Pages artifact under `/HexBound/`; verify live URL on iPhone once; TS stack archived to `legacy-ts`; rewrite AGENTS.md commands/layout/gotchas for Godot; update README/TOWERS/VISUAL_NOTES pointers.
+
+### Migration definition of done
+
+iPhone spike passed · GUT suites green headless · parity sweep clean vs design.md and screenshot baseline · Pages serves the Godot build · TS archived to `legacy-ts` · AGENTS/docs updated · everything committed and pushed.
