@@ -90,9 +90,9 @@ export const LEVELS: LevelDef[] = [
       waves: [
         w([wave('militia', 8, 1.1, 1), wave('priest', 2, 2.5, 3)], 24),
         w([wave('priest', 4, 2, 2), wave('runner', 10, 0.9, 4)], 32),
-        w([wave('knight', 5, 2.2, 2), wave('priest', 3, 2.5, 8)], 38),
+        w([wave('knight', 5, 2.2, 2), wave('paladin', 2, 3, 4), wave('priest', 3, 2.5, 8)], 38),
         w([wave('hunter', 5, 1.6, 2), wave('militia', 14, 0.8, 1)], 46),
-        w([wave('priest', 5, 1.8, 1), wave('knight', 5, 2.2, 5), wave('runner', 12, 0.7, 8)], 60)
+        w([wave('priest', 5, 1.8, 1), wave('paladin', 3, 3.5, 4), wave('knight', 5, 2.2, 5), wave('runner', 12, 0.7, 8)], 60)
       ]
     }
   },
@@ -111,8 +111,8 @@ export const LEVELS: LevelDef[] = [
         w([wave('mage', 3, 2.5, 2), wave('militia', 10, 1.0, 1)], 28),
         w([wave('mage', 4, 2.2, 2), wave('knight', 4, 2.4, 5)], 36),
         w([wave('priest', 4, 2, 2), wave('mage', 4, 2, 7)], 44),
-        w([wave('mage', 6, 1.8, 2), wave('hunter', 5, 1.6, 6)], 52),
-        w([wave('knight', 6, 2, 2), wave('mage', 5, 1.8, 8), wave('runner', 14, 0.7, 4)], 66)
+        w([wave('mage', 6, 1.8, 2), wave('hunter', 5, 1.6, 6), wave('inquisitor', 1, 1, 7)], 52),
+        w([wave('knight', 6, 2, 2), wave('mage', 5, 1.8, 8), wave('runner', 14, 0.7, 4), wave('inquisitor', 2, 5, 9)], 66)
       ]
     }
   },
@@ -129,13 +129,13 @@ export const LEVELS: LevelDef[] = [
       startStability: 12,
       waves: [
         w([wave('militia', 12, 0.9, 1), wave('runner', 8, 1.0, 5)], 30),
-        w([wave('knight', 5, 2.2, 2), wave('priest', 3, 2.4, 6)], 38),
+        w([wave('knight', 5, 2.2, 2), wave('paladin', 2, 3, 5), wave('priest', 3, 2.4, 6)], 38),
         w([wave('hunter', 6, 1.5, 2), wave('mage', 4, 2, 7), wave('militia', 14, 0.8, 1)], 48),
-        w([wave('priest', 6, 1.7, 1), wave('runner', 16, 0.7, 5)], 56),
+        w([wave('priest', 6, 1.7, 1), wave('runner', 16, 0.7, 5), wave('inquisitor', 2, 6, 6)], 56),
         w([wave('knight', 8, 1.8, 2), wave('mage', 6, 1.7, 8)], 64),
-        w([wave('hunter', 8, 1.3, 2), wave('priest', 6, 1.7, 7), wave('militia', 18, 0.6, 1)], 74),
+        w([wave('grandinquisitor', 1, 1, 6), wave('hunter', 8, 1.3, 2), wave('priest', 6, 1.7, 7), wave('militia', 18, 0.6, 1)], 74),
         w([wave('knight', 10, 1.6, 2), wave('runner', 20, 0.6, 6), wave('mage', 8, 1.5, 12)], 88),
-        w([wave('militia', 24, 0.5, 1), wave('knight', 10, 1.5, 4), wave('hunter', 8, 1.3, 10), wave('mage', 8, 1.4, 14), wave('priest', 6, 1.6, 18)], 120)
+        w([wave('militia', 24, 0.5, 1), wave('knight', 10, 1.5, 4), wave('hunter', 8, 1.3, 10), wave('mage', 8, 1.4, 14), wave('priest', 6, 1.6, 18), wave('grandinquisitor', 2, 15, 20)], 120)
       ]
     }
   }
