@@ -16,10 +16,13 @@ var selected_def_id := ""
 var pending_hex = null
 var hover_hex = null
 var has_hover := false
-var ritual_node: MeshInstance3D
+var ritual_node: Node3D
+var ritual_orb: MeshInstance3D
+var _ritual_ring_mat: StandardMaterial3D
 var ritual_flash := 0.0
 var time := 0.0
 
+var _tiles := {}
 var _tiles_root: Node3D
 var _towers := {}
 var _enemies := {}
@@ -40,6 +43,7 @@ func bind(game: SimGame) -> void:
 
 func _on_field_changed(_p = null) -> void:
 	_rebuild_arrows()
+	_rebuild_tile_colors()
 
 
 func setup(config: Dictionary) -> void:
@@ -123,8 +127,6 @@ func setup(config: Dictionary) -> void:
 func _build_field(config: Dictionary) -> void:
 	var cols := int(config["cols"])
 	var rows := int(config["rows"])
-	var entrance: Dictionary = config["entrance"]
-	var ritual: Dictionary = config["ritual"]
 	var tile := CylinderMesh.new()
 	tile.top_radius = 0.92
 	tile.bottom_radius = 0.92
@@ -137,39 +139,89 @@ func _build_field(config: Dictionary) -> void:
 			var t := MeshInstance3D.new()
 			t.mesh = tile
 			var m := StandardMaterial3D.new()
-			var base := Color(0.17, 0.14, 0.26)
-			if HexLib.same_hex(c, ritual):
-				base = Color(0.29, 0.16, 0.35)
-				m.emission_enabled = true
-				m.emission = base
-				m.emission_energy_multiplier = 0.7
-			elif HexLib.same_hex(c, entrance):
-				base = Color(0.22, 0.13, 0.2)
-			m.albedo_color = base
+			m.albedo_color = Color(0.169, 0.137, 0.259)
 			t.material_override = m
 			t.position = Vector3(w["x"], -TILE_H / 2, w["z"])
 			_tiles_root.add_child(t)
+			_tiles[SimGame._hex_key(c)] = t
+	_rebuild_tile_colors()
+	_build_ritual(config)
+
+
+func _rebuild_tile_colors() -> void:
+	if sim == null:
+		return
+	var g := sim.grid
+	for row in g.rows:
+		for col in g.cols:
+			var c := {"col": col, "row": row}
+			var t: MeshInstance3D = _tiles.get(SimGame._hex_key(c))
+			if t == null:
+				continue
+			var col_hex := Color(0.169, 0.137, 0.259)
+			if g.structure_at(c) != null:
+				col_hex = Color(0.122, 0.098, 0.188)
+			elif g.penalty_at(c) > 0.0:
+				col_hex = Color(0.153, 0.251, 0.184)
+			elif HexLib.same_hex(c, g.entrance):
+				col_hex = Color(0.353, 0.227, 0.478)
+			elif HexLib.same_hex(c, g.ritual):
+				col_hex = Color(0.29, 0.165, 0.353)
+			(t.material_override as StandardMaterial3D).albedo_color = col_hex
+
+
+func _build_ritual(config: Dictionary) -> void:
+	var ritual: Dictionary = config["ritual"]
 	var rw := HexLib.hex_to_world(ritual)
-	ritual_node = MeshInstance3D.new()
-	var ring := TorusMesh.new()
-	ring.inner_radius = 0.62
-	ring.outer_radius = 0.8
-	ritual_node.mesh = ring
-	var rm := StandardMaterial3D.new()
-	rm.albedo_color = Color(0.75, 0.5, 0.85)
-	rm.emission_enabled = true
-	rm.emission = Color(0.75, 0.5, 0.85)
-	rm.emission_energy_multiplier = 1.2
-	ritual_node.material_override = rm
-	ritual_node.position = Vector3(rw["x"], 0.12, rw["z"])
-	_tiles_root.add_child(ritual_node)
+	ritual_node = Node3D.new()
+	ritual_node.position = Vector3(rw["x"], 0.0, rw["z"])
+	add_child(ritual_node)
+	var pedestal := MeshInstance3D.new()
+	var ped := CylinderMesh.new()
+	ped.top_radius = 1.1
+	ped.bottom_radius = 1.3
+	ped.height = 0.5
+	ped.radial_segments = 8
+	pedestal.mesh = ped
+	var pm := StandardMaterial3D.new()
+	pm.albedo_color = Color(0.227, 0.184, 0.322)
+	pedestal.material_override = pm
+	pedestal.position.y = 0.25
+	ritual_node.add_child(pedestal)
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.88
+	torus.outer_radius = 1.02
+	ring.mesh = torus
+	_ritual_ring_mat = StandardMaterial3D.new()
+	_ritual_ring_mat.albedo_color = Color(0.165, 0.102, 0.243)
+	_ritual_ring_mat.emission_enabled = true
+	_ritual_ring_mat.emission = Color(0.698, 0.42, 1.0)
+	_ritual_ring_mat.emission_energy_multiplier = 1.0
+	ring.material_override = _ritual_ring_mat
+	ring.position.y = 0.62
+	ritual_node.add_child(ring)
+	ritual_orb = MeshInstance3D.new()
+	var orb := SphereMesh.new()
+	orb.radius = 0.28
+	orb.height = 0.56
+	orb.radial_segments = 14
+	orb.rings = 7
+	ritual_orb.mesh = orb
+	var om := StandardMaterial3D.new()
+	om.albedo_color = Color(0.227, 0.165, 0.333)
+	om.emission_enabled = true
+	om.emission = Color(0.847, 0.667, 1.0)
+	om.emission_energy_multiplier = 2.0
+	ritual_orb.material_override = om
+	ritual_orb.position.y = 1.2
+	ritual_node.add_child(ritual_orb)
 
 
 func _build_ridge(config: Dictionary) -> void:
 	var cols := int(config["cols"])
-	var rows := int(config["rows"])
 	var width := float(cols) * HexLib.SQRT3 + 3.0
-	var back_z := float(rows) * 1.5 + 2.2
+	var back_z := -2.2
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for i in int(width / 0.9):
@@ -310,7 +362,10 @@ func sync(game: SimGame, dt: float) -> void:
 		n.rotation.z = sin(time * 1.4 + r["phase"]) * 0.05
 
 	var pulse := 0.7 + (game.progress / 100.0) * 1.6 + ritual_flash * 3.0
-	(ritual_node.material_override as StandardMaterial3D).emission_energy_multiplier = pulse
+	_ritual_ring_mat.emission_energy_multiplier = pulse
+	ritual_orb.position.y = 1.2 + sin(time * 2.2) * 0.12
+	ritual_orb.rotation.y += dt * 1.5
+	ritual_orb.scale = Vector3.ONE * (1.0 + (game.progress / 100.0) * 0.6 + ritual_flash * 0.35)
 	ritual_flash = maxf(ritual_flash - dt * 1.6, 0.0)
 
 	_select_ring.rotation.y += dt * 0.8

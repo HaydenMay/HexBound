@@ -66,7 +66,7 @@ static func build(def: Dictionary, kind: String) -> Node3D:
 				briar.radius = 0.16
 				briar.height = 0.32
 				var a := TAU * float(i) / 4.0
-				root.add_child(_mesh_node(briar, _mat(accent.darkened(0.35)), Vector3(cos(a) * 0.26, 0.26, sin(a) * 0.26)))
+				root.add_child(_mesh_node(briar, _mat(Color(0.16, 0.29, 0.22), Color(0.62, 1.0, 0.81), 1.5), Vector3(cos(a) * 0.26, 0.26, sin(a) * 0.26)))
 		"ring":
 			for i in 5:
 				var a := TAU * float(i) / 5.0

@@ -85,6 +85,7 @@ func _build_ui() -> void:
 	tb.add_theme_constant_override("separation", 18)
 	topbar.add_child(tb)
 	essence_label = _label("Essence 0", 17)
+	essence_label.add_theme_color_override("font_color", Color(0.498, 0.89, 0.627))
 	tb.add_child(essence_label)
 	wave_label = _label("Next: Wave 1 / 1", 17)
 	tb.add_child(wave_label)
@@ -136,12 +137,14 @@ func _build_ui() -> void:
 	var abandon_btn := _button("Abandon")
 	abandon_btn.pressed.connect(func(): get_tree().reload_current_scene())
 	controls.add_child(abandon_btn)
+	if root.get_viewport().get_visible_rect().size.x < 620.0:
+		controls.position.y = 72.0
 
 	var palette_wrap := VBoxContainer.new()
 	palette_wrap.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	palette_wrap.offset_left = 8
 	palette_wrap.offset_right = -8
-	palette_wrap.offset_top = -132
+	palette_wrap.offset_top = -168
 	palette_wrap.offset_bottom = -8
 	palette_wrap.alignment = BoxContainer.ALIGNMENT_END
 	palette_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -159,7 +162,7 @@ func _build_ui() -> void:
 		var def: Dictionary = StructuresData.DEFS[id]
 		var card := Button.new()
 		card.toggle_mode = true
-		card.custom_minimum_size = Vector2(128, 84)
+		card.custom_minimum_size = Vector2(128, 118)
 		card.add_theme_stylebox_override("normal", _card_style(false))
 		card.add_theme_stylebox_override("hover", _card_style(false))
 		card.add_theme_stylebox_override("pressed", _card_style(true))
@@ -179,7 +182,7 @@ func _build_ui() -> void:
 		key_lab.modulate = Color(1, 1, 1, 0.45)
 		key_row.add_child(key_lab)
 		var gem := ColorRect.new()
-		gem.color = Color(int(def["color"]))
+		gem.color = _def_color(int(def["color"]))
 		gem.custom_minimum_size = Vector2(10, 10)
 		key_row.add_child(gem)
 		var name_lab := _label(def["name"], 13)
@@ -301,6 +304,10 @@ func _build_enemy_inspect(root: Control) -> void:
 	enemy_body = VBoxContainer.new()
 	enemy_body.add_theme_constant_override("separation", 6)
 	v.add_child(enemy_body)
+
+
+func _def_color(v: int) -> Color:
+	return Color8((v >> 16) & 255, (v >> 8) & 255, v & 255)
 
 
 func _panel_style() -> StyleBoxFlat:
@@ -439,7 +446,7 @@ func update_hud() -> void:
 	ritual_label.text = "Ritual %d%%" % int(floorf(game.progress))
 
 	for i in pips.size():
-		pips[i].color = ACCENT if i < game.stability else Color(1, 1, 1, 0.12)
+		pips[i].color = Color(1.0, 0.36, 0.36) if i < game.stability else Color(1, 1, 1, 0.12)
 
 	if game.phase == "building":
 		render_preview()
@@ -479,7 +486,7 @@ func render_preview() -> void:
 	var parts: Array = []
 	for gr in wave["groups"]:
 		var def: Dictionary = EnemiesData.DEFS[gr["enemy"]]
-		var hex: String = Color(int(def["color"])).to_html(false)
+		var hex: String = _def_color(int(def["color"])).to_html(false)
 		parts.append("[color=#%s]%dx %s[/color]" % [hex, int(gr["count"]), def["name"]])
 	preview_box.text = "  ".join(parts)
 
