@@ -147,6 +147,7 @@ export class Game {
     }
     if (this.essence < chosen.cost) return 'unaffordable'
     this.essence -= chosen.cost
+    inst.invested += chosen.cost
     if (forked) inst.forkId = (chosen as ForkOption).id
     else inst.tierIndex++
     if (chosen.hp !== undefined) {
@@ -156,6 +157,20 @@ export class Game {
     if (kindStats(inst).kind === 'grove') this.afterBattlefieldChanged()
     this.events.emit('structureUpgraded', inst)
     return 'ok'
+  }
+
+  refundFor(inst: StructureInstance): number {
+    if (inst.destroyed) return 0
+    return inst.contributed ? Math.floor((inst.invested * 2) / 3) : inst.invested
+  }
+
+  sellStructure(inst: StructureInstance): number {
+    if (inst.destroyed) return 0
+    const refund = this.refundFor(inst)
+    this.essence += refund
+    inst.sold = true
+    this.destroyStructure(inst)
+    return refund
   }
 
   startWave(): void {
@@ -192,6 +207,7 @@ export class Game {
     this.applyWells(dt)
     this.applyAllies(dt)
     this.applyStructureAttacks(dt)
+    this.applyGroves()
 
     const breaches: Enemy[] = []
     for (const e of this.enemies) {
@@ -271,6 +287,7 @@ export class Game {
       target.poisonRemaining = 0
       target.attackingHex = null
       s.cooldown = idol.cooldown
+      s.contributed = true
       const to = lerpHexToWorld(target.cur, target.next, target.t)
       this.events.emit<LightningPayload>('lightning', {
         color: 0xc08aff,
@@ -304,6 +321,7 @@ export class Game {
     this.allies = this.allies.filter(a => a !== nearest)
     const well = stats.well
     inst.cooldown = well.sacrificeCooldown
+    inst.contributed = true
     for (const e of this.enemies) {
       if (!e.charmedBy && hexDistance(inst.hex, e.cur) <= well.sacrificeRadius) {
         e.hp -= well.sacrificeDamage
@@ -325,7 +343,10 @@ export class Game {
       if (kindStats(s).kind !== 'cauldron') continue
       const radius = currentTier(s).radius
       for (const e of this.enemies) {
-        if (!e.inAura && !e.charmedBy && hexDistance(s.hex, e.cur) <= radius) e.inAura = true
+        if (!e.inAura && !e.charmedBy && hexDistance(s.hex, e.cur) <= radius) {
+          e.inAura = true
+          s.contributed = true
+        }
       }
     }
     for (const e of this.enemies) {
@@ -404,6 +425,7 @@ export class Game {
       }
       for (const e of hit) e.hp -= totem.damage
       s.cooldown = totem.cooldown
+      s.contributed = true
       const points: WorldPos[] = [hexToWorld(s.hex)]
       for (const e of hit) points.push(lerpHexToWorld(e.cur, e.next, e.t))
       this.events.emit<LightningPayload>('lightning', { color: 0xcfeaff, points })
@@ -458,6 +480,7 @@ export class Game {
       e.attackingHex = best ? { ...best.hex } : null
       if (!best) continue
       best.hp -= sd * dt
+      best.contributed = true
 
       e.vfxClock += dt
       if (e.vfxClock >= 0.5) {
@@ -478,6 +501,7 @@ export class Game {
       const stats = kindStats(best)
       if (stats.kind === 'mirror' && Math.random() < stats.mirror.reflectChance) {
         e.hp -= sd * stats.mirror.reflectFactor
+        best.contributed = true
         this.events.emit<LightningPayload>('lightning', {
           color: 0xf0f0ff,
           points: [hexToWorld(best.hex), lerpHexToWorld(e.cur, e.next, e.t)]
@@ -522,6 +546,20 @@ export class Game {
       if (stats.kind !== 'well') continue
       if (hexDistance(s.hex, hex) <= currentTier(s).radius) {
         this.essence += stats.well.essencePerDeath
+        s.contributed = true
+      }
+    }
+  }
+
+  private applyGroves(): void {
+    for (const s of this.structures) {
+      if (s.contributed || kindStats(s).kind !== 'grove') continue
+      const radius = currentTier(s).radius
+      for (const e of this.enemies) {
+        if (!e.charmedBy && hexDistance(s.hex, e.cur) <= radius) {
+          s.contributed = true
+          break
+        }
       }
     }
   }
@@ -540,6 +578,7 @@ export class Game {
         const ally = new Ally(ring.dps, ring.duration, ring.attackRadius, hex)
         ally.ownerId = key
         this.allies.push(ally)
+        s.contributed = true
       }
       break
     }

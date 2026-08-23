@@ -15,8 +15,15 @@ export interface ScreenPoint {
   visible: boolean
 }
 
+export interface InputState {
+  selectedDefId: string | null
+  pendingHex: { col: number; row: number } | null
+}
+
+export type TapSource = 'mouse' | 'touch'
+
 export class Renderer {
-  onTap: ((hex: HexCoord) => void) | null = null
+  onTap: ((hex: HexCoord, source: TapSource) => void) | null = null
 
   private webgl: THREE.WebGLRenderer
   private scene = new THREE.Scene()
@@ -53,6 +60,7 @@ export class Renderer {
   private time = 0
 
   private panning = false
+  private camBlend = 0
   private lastX = 0
   private lastY = 0
   private hoverNdc = new THREE.Vector2()
@@ -60,7 +68,7 @@ export class Renderer {
   private activePointers = new Map<number, { x: number; y: number }>()
   private pinchDist = 0
 
-  constructor(private canvas: HTMLCanvasElement, private game: Game, private input: { selectedDefId: string | null }) {
+  constructor(private canvas: HTMLCanvasElement, private game: Game, private input: InputState) {
     this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.webgl.setSize(canvas.clientWidth, canvas.clientHeight, false)
@@ -207,21 +215,28 @@ export class Renderer {
 
   private buildSky(): void {
     const grid = this.game.grid
-    const minX = hexToWorld({ col: 0, row: grid.rows - 1 }).x - 10
-    const maxX = hexToWorld({ col: grid.cols - 1, row: 0 }).x + 10
+    const minX = hexToWorld({ col: 0, row: grid.rows - 1 }).x - 14
+    const maxX = hexToWorld({ col: grid.cols - 1, row: 0 }).x + 14
     const backZ = hexToWorld({ col: 0, row: 0 }).z - 2
-    const spireMat = new THREE.MeshBasicMaterial({ color: 0x130d20 })
-    for (let i = 0; i < 46; i++) {
-      const h = 5 + Math.random() * 9
-      const spire = new THREE.Mesh(new THREE.ConeGeometry(1.4 + Math.random() * 2.2, h, 5), spireMat)
-      spire.position.set(minX + Math.random() * (maxX - minX), h / 2 - 0.6, backZ + Math.random() * 4 - 3)
-      this.scene.add(spire)
+    const farMat = new THREE.MeshBasicMaterial({ color: 0x130d21 })
+    let x = minX
+    while (x < maxX + 3) {
+      const w = 2.2 + Math.random() * 2.2
+      const h = 9 + Math.random() * 7
+      const peak = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), farMat)
+      peak.position.set(x + Math.random(), h / 2 - 0.7, backZ - 16 - Math.random() * 5)
+      this.scene.add(peak)
+      x += w * 1.05
     }
-    for (let i = 0; i < 5; i++) {
-      const h = 13 + Math.random() * 6
-      const giant = new THREE.Mesh(new THREE.ConeGeometry(3, h, 5), spireMat)
-      giant.position.set(minX + ((i + 0.5) / 5) * (maxX - minX) + (Math.random() - 0.5) * 6, h / 2 - 0.6, backZ - 2 - Math.random() * 2)
-      this.scene.add(giant)
+    const nearMat = new THREE.MeshBasicMaterial({ color: 0x0b0714 })
+    x = minX - 2
+    while (x < maxX + 3) {
+      const w = 1.6 + Math.random() * 1.6
+      const h = 5 + Math.random() * 5
+      const peak = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), nearMat)
+      peak.position.set(x + Math.random(), h / 2 - 0.6, backZ - 7 - Math.random() * 2)
+      this.scene.add(peak)
+      x += w * 0.85
     }
   }
 
@@ -565,7 +580,8 @@ export class Renderer {
 
   private updateGhost(): void {
     const defId = this.input.selectedDefId
-    if (!defId || !this.hasHover || !this.ghostHex || !this.game.grid.inBounds(this.ghostHex)) {
+    const hex = this.input.pendingHex ?? this.ghostHex
+    if (!defId || !hex || !this.game.grid.inBounds(hex) || (!this.input.pendingHex && !this.hasHover)) {
       if (this.ghost) this.ghost.visible = false
       return
     }
@@ -614,8 +630,8 @@ export class Renderer {
       this.ghostDefId = defId
       this.scene.add(g)
     }
-    const valid = this.game.canPlace(defId, this.ghostHex).ok
-    const world = hexToWorld(this.ghostHex)
+    const valid = this.game.canPlace(defId, hex).ok
+    const world = hexToWorld(hex)
     const ghost = this.ghost
     if (!ghost) return
     ghost.visible = true
@@ -725,7 +741,8 @@ export class Renderer {
       if (this.activePointers.size < 2) this.pinchDist = 0
       if (allowTap && !this.panning && this.activePointers.size === 0) {
         const hex = this.pickHex(e.clientX, e.clientY)
-        if (hex && this.onTap) this.onTap(hex)
+        const source: TapSource = e.pointerType === 'touch' ? 'touch' : 'mouse'
+        if (hex && this.onTap) this.onTap(hex, source)
       }
       if (this.activePointers.size === 0) {
         this.panning = false
@@ -795,8 +812,14 @@ export class Renderer {
       this.clampTarget()
     }
 
-    this.camera.position.set(this.target.x, this.dist * 0.92, this.target.z + this.dist * 0.72)
-    this.camera.lookAt(this.target)
+    const wantBattle = this.game.phase !== 'building'
+    const blendStep = 1.1 * dt
+    this.camBlend += THREE.MathUtils.clamp((wantBattle ? 1 : 0) - this.camBlend, -blendStep, blendStep)
+    const e = this.camBlend * this.camBlend * (3 - 2 * this.camBlend)
+    const hFactor = THREE.MathUtils.lerp(0.92, 0.58, e)
+    const zFactor = THREE.MathUtils.lerp(0.72, 0.94, e)
+    this.camera.position.set(this.target.x, this.dist * hFactor, this.target.z + this.dist * zFactor)
+    this.camera.lookAt(this.target.x, 0, this.target.z + this.game.grid.rows * 0.26 * e)
 
     const enemies = this.game.enemies
     const m = new THREE.Matrix4()

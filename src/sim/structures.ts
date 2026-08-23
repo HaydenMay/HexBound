@@ -10,6 +10,9 @@ export interface StructureInstance {
   tierIndex: number
   forkId: string | null
   destroyed: boolean
+  invested: number
+  contributed: boolean
+  sold: boolean
 }
 
 export function createStructure(def: StructureDef, hex: HexCoord): StructureInstance {
@@ -23,7 +26,10 @@ export function createStructure(def: StructureDef, hex: HexCoord): StructureInst
     maxHp: def.hp,
     tierIndex: 0,
     forkId: null,
-    destroyed: false
+    destroyed: false,
+    invested: def.cost,
+    contributed: false,
+    sold: false
   }
 }
 

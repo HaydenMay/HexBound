@@ -91,6 +91,24 @@ describe('placement', () => {
     game.place('hexcauldron', { col: 1, row: 1 })
     expect(changed).toBe(1)
   })
+
+  it('refunds in full before contributing and partially after', () => {
+    game.place('bonepalisade', { col: 1, row: 1 })
+    const inst = game.structureAt({ col: 1, row: 1 })!
+    expect(game.refundFor(inst)).toBe(12)
+    inst.contributed = true
+    expect(game.refundFor(inst)).toBe(8)
+  })
+
+  it('selling returns essence, frees the hex, and reopens the path', () => {
+    game.place('bonepalisade', { col: 1, row: 1 })
+    const before = game.essence
+    const refund = game.sellStructure(game.structureAt({ col: 1, row: 1 })!)
+    expect(refund).toBe(12)
+    expect(game.essence).toBe(before + 12)
+    expect(game.structureAt({ col: 1, row: 1 })).toBeNull()
+    expect(game.canPlace('bonepalisade', { col: 1, row: 1 }).ok).toBe(true)
+  })
 })
 
 describe('waves and combat', () => {

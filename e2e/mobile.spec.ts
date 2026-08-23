@@ -119,7 +119,17 @@ test('tapping a palette card then tapping the field places a structure', async (
 
   const box = await page.locator('#game').boundingBox()
   expect(box).toBeTruthy()
-  await page.touchscreen.tap(box!.x + found!.x, box!.y + found!.y)
+  const tx = box!.x + found!.x
+  const ty = box!.y + found!.y
+
+  await page.touchscreen.tap(tx, ty)
+  await expect
+    .poll(async () => (await h.game())?.structures.length ?? 0, { timeout: 3_000 })
+    .toBe(0)
+  await expect(page.locator('#placehint')).toBeVisible()
+
+  await page.touchscreen.tap(tx, ty)
 
   await expect.poll(async () => (await h.game())?.structures.length ?? 0).toBe(1)
+  await expect(page.locator('#placehint')).toBeHidden()
 })

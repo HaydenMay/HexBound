@@ -1,5 +1,7 @@
 import { Game } from './sim/game'
 import type { GameConfig } from './sim/types'
+import type { HexCoord } from './sim/hex'
+import type { InputState } from './render/renderer'
 import { ENEMY_DEFS } from './data/enemies'
 import { STRUCTURE_DEFS, STRUCTURE_ORDER } from './data/structures'
 import { LEVELS, applySize, FIELD_SIZES, type FieldSize } from './data/levels'
@@ -81,16 +83,22 @@ try {
     menuEl.classList.add('hidden')
 
     const game = new Game(config, { enemies: ENEMY_DEFS, structures: STRUCTURE_DEFS })
-    const input = { selectedDefId: null as string | null }
+    const input: InputState = { selectedDefId: null, pendingHex: null }
     const controls = { speed: 1, paused: false }
 
     const canvas = document.getElementById('game') as HTMLCanvasElement
     const renderer = new Renderer(canvas, game, input)
-    const hud = new Hud(game, input, controls, () => renderer.refreshSelection())
+    const hud = new Hud(game, input, controls, () => {
+      input.pendingHex = null
+      hud.setPending(null)
+      renderer.refreshSelection()
+    })
 
-    renderer.onTap = hex => {
+    renderer.onTap = (hex, source) => {
       const inst = game.structureAt(hex)
       if (inst) {
+        input.pendingHex = null
+        hud.setPending(null)
         hud.showStructure(inst)
         renderer.setSelected(inst)
         return
@@ -102,9 +110,21 @@ try {
           hud.warn(res.reason)
           return
         }
+        if (source === 'touch') {
+          const p: HexCoord | null = input.pendingHex
+          if (!p || p.col !== hex.col || p.row !== hex.row) {
+            input.pendingHex = { ...hex }
+            hud.setPending(hex)
+            return
+          }
+        }
+        input.pendingHex = null
+        hud.setPending(null)
         game.place(defId, hex)
         return
       }
+      input.pendingHex = null
+      hud.setPending(null)
       hud.showStructure(null)
       renderer.setSelected(null)
     }
@@ -113,6 +133,8 @@ try {
       const idx = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'].indexOf(e.code)
       if (idx >= 0 && STRUCTURE_ORDER[idx]) hud.selectDef(STRUCTURE_ORDER[idx])
       else if (e.code === 'Escape') {
+        input.pendingHex = null
+        hud.setPending(null)
         hud.selectDef(null)
         hud.showStructure(null)
         renderer.setSelected(null)

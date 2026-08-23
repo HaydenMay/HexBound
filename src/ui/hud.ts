@@ -34,6 +34,7 @@ export class Hud {
   private inspectEl: HTMLElement
   private inspectBodyEl: HTMLElement
   private inspectTitleEl: HTMLElement
+  private placeHintEl: HTMLElement
 
   private selectedStructure: StructureInstance | null = null
   private previewKey = ''
@@ -61,6 +62,7 @@ export class Hud {
     this.inspectEl = this.require('#inspect')
     this.inspectBodyEl = this.require('#inspect-body')
     this.inspectTitleEl = this.require('#inspect-title')
+    this.placeHintEl = this.require('#placehint')
 
     const stabWrap = this.require('#stability')
     this.stabilityEl = []
@@ -79,7 +81,7 @@ export class Hud {
       card.dataset.def = id
       card.innerHTML = `
         <span class="card-key">${i + 1}</span>
-        <span class="card-name">${def.name}</span>
+        <span class="card-name"><span class="card-gem" style="--k:#${def.color.toString(16).padStart(6, '0')}"></span>${def.name}</span>
         <span class="card-cost">${def.cost} essence</span>
         <span class="card-blurb">${def.blurb}</span>`
       card.addEventListener('click', () => this.selectDef(id))
@@ -122,6 +124,15 @@ export class Hud {
     this.onSelectionChanged()
   }
 
+  setPending(hex: { col: number; row: number } | null): void {
+    if (hex) {
+      this.placeHintEl.textContent = 'Tap the glowing hex again to conjure'
+      this.placeHintEl.classList.add('show')
+    } else {
+      this.placeHintEl.classList.remove('show')
+    }
+  }
+
   private syncPalette(): void {
     for (const [id, card] of this.paletteCards) {
       card.classList.toggle('selected', this.input.selectedDefId === id)
@@ -146,7 +157,7 @@ export class Hud {
     const fork = inst.forkId ? tier.forks?.find(f => f.id === inst.forkId) : null
     const shown = fork ?? tier
     const stats = kindStats(inst)
-    const key = `${inst.hex.col},${inst.hex.row}:${inst.tierIndex}:${inst.forkId ?? ''}`
+    const key = `${inst.hex.col},${inst.hex.row}:${inst.tierIndex}:${inst.forkId ?? ''}:${inst.contributed ? 1 : 0}`
     if (key !== this.inspectKey) {
       this.inspectKey = key
       this.inspectTitleEl.textContent = `${inst.def.name} — ${shown.label}`
@@ -179,10 +190,16 @@ export class Hud {
           <span class="up-cost" id="sacrifice-state"></span>
         </button>`
       }
+      const refund = this.game.refundFor(inst)
+      const sellBlock = `<button class="upgrade-btn sell-btn" id="sell-btn">
+        <span class="up-label">Dismantle</span>
+        <span class="up-desc">${inst.contributed ? 'It has served — partial return' : 'Untouched — full return'}</span>
+        <span class="up-cost">+${refund} essence</span>
+      </button>`
       this.inspectBodyEl.innerHTML = `
         <div class="inspect-tier">${shown.desc}</div>
         <div class="inspect-hp">Structure integrity: <span id="inspect-hp-val"></span></div>
-        <div class="upgrade-list">${buttons}${sacrificeBlock}</div>`
+        <div class="upgrade-list">${buttons}${sacrificeBlock}${sellBlock}</div>`
       this.inspectBodyEl.querySelectorAll<HTMLButtonElement>('.upgrade-btn[data-fork]').forEach(btn => {
         btn.addEventListener('click', () => {
           if (!this.selectedStructure) return
@@ -194,6 +211,10 @@ export class Hud {
       this.inspectBodyEl.querySelector('#sacrifice-btn')?.addEventListener('click', () => {
         if (!this.selectedStructure) return
         if (!this.game.sacrifice(this.selectedStructure)) this.showBanner('The well is not ready', true)
+      })
+      this.inspectBodyEl.querySelector('#sell-btn')?.addEventListener('click', () => {
+        if (!this.selectedStructure) return
+        this.game.sellStructure(this.selectedStructure)
       })
     }
     const hpVal = this.require('#inspect-hp-val')
