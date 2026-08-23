@@ -7,6 +7,9 @@ func before_each():
 	ctrl = load("res://scripts/game_controller.gd").new()
 	get_tree().root.add_child(ctrl)
 	await get_tree().process_frame
+	if not ctrl.started:
+		ctrl._start_level(0)
+	await get_tree().process_frame
 	await get_tree().process_frame
 
 

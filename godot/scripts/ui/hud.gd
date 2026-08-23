@@ -133,6 +133,9 @@ func _build_ui() -> void:
 	speed_btn = _button("1x")
 	speed_btn.pressed.connect(func(): ctrl.speed = 1 if ctrl.speed >= 3 else ctrl.speed + 1)
 	controls.add_child(speed_btn)
+	var abandon_btn := _button("Abandon")
+	abandon_btn.pressed.connect(func(): get_tree().reload_current_scene())
+	controls.add_child(abandon_btn)
 
 	var palette_wrap := VBoxContainer.new()
 	palette_wrap.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)

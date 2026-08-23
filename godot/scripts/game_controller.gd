@@ -6,8 +6,13 @@ var game: SimGame
 var view: BattleView
 var input_ctrl: InputController
 var hud: Hud
+var menu: Menu
 var paused := false
 var speed := 1.0
+var started := false
+var level_index := -1
+var field_size := "medium"
+var unlocked_levels := 1
 
 var _selected_structure = null
 var _selected_enemy = null
@@ -15,7 +20,40 @@ var _seen_intros := {}
 
 
 func _ready() -> void:
-	var config: Dictionary = LevelsData.LEVELS[0]["config"]
+	unlocked_levels = SaveStore.load_save()["unlockedLevels"]
+	field_size = SaveStore.load_field_size()
+	_show_menu()
+
+
+func _show_menu() -> void:
+	menu = Menu.new()
+	add_child(menu)
+	menu.setup(unlocked_levels, field_size)
+	menu.pick_level.connect(_start_level)
+	menu.size_changed.connect(_on_size_changed)
+	menu.reset_requested.connect(_reset_save)
+
+
+func _on_size_changed(size: String) -> void:
+	field_size = size
+
+
+func _reset_save() -> void:
+	unlocked_levels = 1
+	SaveStore.reset_save()
+	if is_instance_valid(menu):
+		menu.refresh(unlocked_levels, field_size)
+
+
+func _start_level(i: int) -> void:
+	if started:
+		return
+	started = true
+	level_index = i
+	if is_instance_valid(menu):
+		menu.queue_free()
+	var config: Dictionary = FieldSize.apply(LevelsData.LEVELS[i]["config"], field_size)
+
 	game = SimGame.new(config, {"enemies": EnemiesData.DEFS, "structures": StructuresData.DEFS})
 	view = BattleView.new()
 	view.bind(game)
@@ -36,9 +74,14 @@ func _ready() -> void:
 
 	game.events.on("enemyBreached", func(_p): view.flash_breach(game.grid.ritual))
 	game.events.on("enemySpawned", _on_enemy_spawned)
+	game.events.on("won", func(_p):
+		unlocked_levels = maxi(unlocked_levels, i + 2)
+		SaveStore.save_progress(unlocked_levels))
 
 
 func _process(dt: float) -> void:
+	if not started:
+		return
 	if not paused:
 		var step := dt * speed
 		while step > 0.0:
