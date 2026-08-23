@@ -5,6 +5,7 @@ A witchcraft tower defense game. They march to end your ritual; you decide the r
 - **Play:** push to `main` and GitHub Pages serves it (lint → test → build → deploy).
 - **Towers & synergies:** see [TOWERS.md](TOWERS.md).
 - **Stack:** TypeScript + Three.js + Vite, Vitest unit tests, Playwright e2e gate (desktop + mobile).
+- **Know your foe:** tap any enemy on the field for live vitality and traits — scout its weakness with the Watching Eye tower (9 structures total).
 
 ## Develop
 

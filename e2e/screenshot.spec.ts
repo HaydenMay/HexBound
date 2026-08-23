@@ -26,7 +26,8 @@ for (const size of SIZES) {
         ['stormtotem', 4, 4],
         ['mushroomring', 7, 2],
         ['whisperingidol', 7, 4],
-        ['moonwell', 8, 2]
+        ['moonwell', 8, 2],
+        ['watchingeye', 5, 3]
       ]
       for (const [id, col, row] of showcase) {
         if (g.canPlace(id, { col, row }).ok) g.place(id, { col, row })

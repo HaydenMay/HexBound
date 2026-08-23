@@ -4,6 +4,7 @@ import type { PlaceError } from '../sim/types'
 import { STRUCTURE_DEFS, STRUCTURE_ORDER } from '../data/structures'
 import { ENEMY_DEFS } from '../data/enemies'
 import { Enemy } from '../sim/enemy'
+import { playBreach } from './audio'
 
 export interface Controls {
   speed: number
@@ -118,7 +119,10 @@ export class Hud {
 
     game.events.on<number>('waveStarted', n => this.announce(`Wave ${n}`))
     game.events.on<number>('waveCleared', n => this.announce(`Wave ${n} cleared`))
-    game.events.on('enemyBreached', () => this.flashVignette())
+    game.events.on('enemyBreached', () => {
+      this.flashVignette()
+      playBreach()
+    })
     game.events.on<StructureInstance>('structureDestroyed', s => {
       if (this.selectedStructure === s) this.showStructure(null)
       this.showBanner(`Your ${s.def.name} was shattered!`, true)

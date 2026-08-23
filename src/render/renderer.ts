@@ -68,6 +68,7 @@ export class Renderer {
   private hasHover = false
   private activePointers = new Map<number, { x: number; y: number }>()
   private pinchDist = 0
+  private ritualFlash = 0
 
   constructor(private canvas: HTMLCanvasElement, private game: Game, private input: InputState) {
     this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -208,6 +209,10 @@ export class Renderer {
     })
     game.events.on<LightningPayload>('lightning', p => this.spawnLightning(p))
     game.events.on<NovaPayload>('nova', p => this.spawnNova(p))
+    game.events.on('enemyBreached', () => {
+      this.ritualFlash = 1
+      this.spawnNova({ pos: hexToWorld(this.game.grid.ritual), radius: 2.2, color: 0xff5a4a })
+    })
 
     this.bindInput()
     window.addEventListener('resize', () => this.resize())
@@ -949,10 +954,11 @@ export class Renderer {
     }
 
     const pulse = 0.6 + (this.game.progress / 100) * 1.6
-    this.ritualRing.emissiveIntensity = pulse
+    this.ritualFlash = Math.max(this.ritualFlash - dt * 1.6, 0)
+    this.ritualRing.emissiveIntensity = pulse + this.ritualFlash * 4
     this.ritualOrb.position.y = 1.2 + Math.sin(this.time * 2.2) * 0.12
     this.ritualOrb.rotation.y += dt * 1.5
-    this.ritualOrb.scale.setScalar(1 + (this.game.progress / 100) * 0.6)
+    this.ritualOrb.scale.setScalar(1 + (this.game.progress / 100) * 0.6 + this.ritualFlash * 0.35)
 
     if (this.ghostRingMat) {
       this.ghostRingMat.opacity = 0.32 + 0.12 * Math.sin(this.time * 6)

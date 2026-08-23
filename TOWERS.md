@@ -2,7 +2,7 @@
 
 Every structure the coven can raise, what it does, how it grows, and how the pieces conspire together. Costs are in **essence**. All towers are procedural meshes with a resident character living inside (yes, even the wall — look closer).
 
-The foe roster you're up against: **Militia** (chaff), **Runners** (fast, frail), **Knights** (slow, 150 HP), **Priests** (80% curse-resistant), **Witch Hunters** (melee, smash structures), **Battle Mages** (snipe structures from 3 hexes out).
+The foe roster you're up against: **Militia** (chaff), **Runners** (fast, frail), **Knights** (slow, 150 HP), **Priests** (80% curse-resistant), **Witch Hunters** (melee, smash structures), **Battle Mages** (snipe structures from 3 hexes out), **Paladins** (periodically cleanse curses from nearby allies — never themselves), **Elite Inquisitors** (silence your structures, uncharmable, chop walls), and the **Grand Inquisitor** (boss: mass silence, summons militia reinforcements, half curse-proof).
 
 ---
 
@@ -122,6 +122,21 @@ A structureTarget wall with attitude: any Hunter or Mage striking it risks havin
 - **HP 120** — tankiest blocker per essence in the game.
 - **Use:** park it where Hunters funnel in. They kill themselves on your architecture. The attendant dusts the glass between assaults; she insists it helps.
 
+## Watching Eye — 35e
+*Reveals foe weaknesses and sharpens them against their bane.*
+
+An information structure — it deals no direct damage. Foes that pass inside the gaze get their type scouted *permanently* for the rest of the level (the enemy inspector's `???` resolves into their named weakness), and while a foe stands inside the radius, its weakness damage type bites harder.
+
+| Tier | Label | Cost | Radius | Bane amp |
+|---|---|---|---|---|
+| 1 | Half-Open Lid | — | 3 | +15% |
+| 2 | Wide Gaze | 40e | 3.75 | +25% |
+| 3 | All-Seeing Iris | 60e | 4.5 | +35% |
+
+- **Use:** cover your kill zone, not just the road — scouting needs a single pass, but the amp only pays while the foe stands in both radii.
+- **Inspect:** tap any foe on the field for live vitality, trait tags (curse-proof, silencer, summoner…), and its bane once scouted.
+- Not a wall (`blocksPath: false`, Hunters ignore it). The floating iris watches; the stone ring remembers.
+
 ---
 
 ## Synergy cheat-sheet
@@ -132,6 +147,10 @@ A structureTarget wall with attitude: any Hunter or Mage striking it risks havin
 - **Ring + Well:** corpse economy — raise, wander, detonate, profit.
 - **Idol + Totem:** charm holds the Knight still; lightning does the paperwork.
 - **Mirror + Palisade front line:** hunters hit walls; mirrors return mail to sender.
+- **Eye + everything:** scouting is permanent per foe type, and the bane amp stacks the deck — a Knight standing in Eye + Totem range takes +15–35% shock. Information that also deals damage.
+- **Anti-Paladin:** their cleanse hits everyone-but-themselves every few seconds. Split formations or burst fast so one prayer can't absolve the whole pack.
+- **Anti-Inquisitor:** silences shut down totems/cauldrons/idols for seconds at a time and they can't be charmed — beat them with geometry: walls, mirrors, thorns.
+- **The Grand Inquisitor:** silences wide, summons militia behind you, shrugs half your curses. Keep a Mirror on his flank for his own summons' road and lean on raw totem damage over curses.
 - **Anti-Priest:** Priests resist curses — bring the Totem (raw damage) and geometry, not poison.
 - **Anti-structure:** Hunters/Mages only attack `structureTarget` works (Palisade, Mirror). Groves, wells, rings, idols, cauldrons, totems are beneath their notice.
 
