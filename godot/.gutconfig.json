@@ -1,0 +1,9 @@
+{
+  "dirs": ["res://tests/unit"],
+  "should_exit": true,
+  "include_subdirs": true,
+  "hide_orphans": true,
+  "double_strategy": "SCRIPT_ONLY",
+  "junit_xml_file": "",
+  "gut_on_open": false
+}
