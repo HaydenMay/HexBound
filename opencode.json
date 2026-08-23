@@ -54,9 +54,9 @@
       "enabled": true
     },
     "godot": {
-      "command": "npx",
-      "args": ["@coding-solo/godot-mcp"],
-      "env": {
+      "type": "local",
+      "command": ["npx", "-y", "@coding-solo/godot-mcp"],
+      "environment": {
         "GODOT_PATH": "C:\\Users\\mayha\\Documents\\Godot\\Godot_v4.6.1-stable_win64_console.exe",
         "DEBUG": "true"
       },
