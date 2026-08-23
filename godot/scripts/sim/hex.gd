@@ -59,11 +59,15 @@ static func world_to_hex(x: float, z: float) -> Dictionary:
 	return {"col": cube.x + (cube.z - (cube.z & 1)) / 2, "row": cube.z}
 
 
+static func _js_round(v: float) -> int:
+	return int(floorf(v + 0.5))
+
+
 static func _cube_round(q: float, r: float) -> Vector3i:
 	var s := -q - r
-	var rq := roundi(q)
-	var rr := roundi(r)
-	var rs := roundi(s)
+	var rq := _js_round(q)
+	var rr := _js_round(r)
+	var rs := _js_round(s)
 	var dq := absf(float(rq) - q)
 	var dr := absf(float(rr) - r)
 	var ds := absf(float(rs) - s)

@@ -189,7 +189,15 @@ func start_wave() -> void:
 	for g in wave["groups"]:
 		for i in int(g["count"]):
 			spawn_queue.append({"enemy": g["enemy"], "at": float(g["delay"]) + i * float(g["interval"])})
-	spawn_queue.sort_custom(func(a, b): return a["at"] < b["at"])
+	for i in spawn_queue.size():
+		spawn_queue[i]["_ord"] = i
+	spawn_queue.sort_custom(func(a, b):
+		if a["at"] == b["at"]:
+			return a["_ord"] < b["_ord"]
+		return a["at"] < b["at"]
+	)
+	for entry in spawn_queue:
+		entry.erase("_ord")
 	clock = 0.0
 	phase = "active"
 	events.emit("waveStarted", get_current_wave())
@@ -377,7 +385,7 @@ func apply_cauldrons(dt: float) -> void:
 		if e.poison_stacks > 0 and e.poison_remaining > 0.0:
 			e.poisoned_time += dt
 			var dps := float(e.poison_stacks) * float(cauldron["dpsPerStack"])
-			if cauldron.has("frenzyPerSec"):
+			if float(cauldron.get("frenzyPerSec", 0.0)) > 0.0:
 				dps *= 1.0 + float(cauldron["frenzyPerSec"]) * e.poisoned_time
 			damage_enemy(e, dps * dt, "poison")
 
@@ -385,7 +393,7 @@ func apply_cauldrons(dt: float) -> void:
 func gain_poison(source: SimEnemy, cauldron: Dictionary) -> void:
 	source.poison_stacks = mini(source.poison_stacks + 1, int(cauldron["maxStacks"]))
 	source.poison_remaining = float(cauldron["stackDuration"])
-	if not cauldron.has("spreadRadius"):
+	if float(cauldron.get("spreadRadius", 0.0)) <= 0.0:
 		return
 	for other in enemies:
 		if other == source or other.poison_stacks >= int(cauldron["maxStacks"]):
@@ -415,11 +423,20 @@ func apply_totems(dt: float) -> void:
 		if float(s["cooldown"]) > 0.0:
 			continue
 		var range_r := float(StructureOps.current_tier(s)["radius"])
-		var in_range: Array = []
+		var ranked: Array = []
 		for e in enemies:
-			if e.charmed_by == null and HexLib.hex_distance(s["hex"], e.cur) <= range_r:
-				in_range.append(e)
-		in_range.sort_custom(func(a, b): return HexLib.hex_distance(a.cur, s["hex"]) < HexLib.hex_distance(b.cur, s["hex"]))
+			if e.charmed_by == null:
+				var d := HexLib.hex_distance(s["hex"], e.cur)
+				if d <= range_r:
+					ranked.append({"d": d, "id": e.id, "e": e})
+		ranked.sort_custom(func(a, b):
+			if a["d"] == b["d"]:
+				return a["id"] < b["id"]
+			return a["d"] < b["d"]
+		)
+		var in_range: Array = []
+		for r in ranked:
+			in_range.append(r["e"])
 		if in_range.is_empty():
 			continue
 		var hit: Array = [in_range[0]]
