@@ -1,8 +1,8 @@
-# HANDOFF — P2a/P2b SHIPPED; now executing Godot migration
+# HANDOFF — Godot logic layer DONE; next: visual port items 17–22 (MCP era)
 
-**P2a/P2b complete** — shipped `b821e91` (items 1–11 done: foe weave, eye mesh + inspect UI, boss intros, sell lock, m4 tests, e2e 9-card counts, all gates green; critic §14/§19 PASS, §32 gap fixed with ritual flash + procedural breach audio).
+**Pre-MCP phase complete** — spike passed on iPhone (HTTPS via Pages), `godot/` bootstrapped (gl_compatibility), data tables generated from TS sources with fixture-backed parity tests, full sim core ported. **GUT 56/56 green headless · vitest 53/53 green.** Critic round passed after fixes: stable-order tie-breaks (spawn/totem sorts), TS-falsy spreadRadius/frenzy semantics, JS Math.round parity in cube rounding.
 
-Resume with `/gauntlet-loop finish P2a/P2b (items 1–11), then Godot migration items 12–22 in order.` Work through **Remaining** then **Godot migration** top to bottom; do not stop until each section's definition of done is met.
+Restart OpenCode so the godot MCP loads, then resume at item 17 (renderer rebuild).
 
 ## Already committed on main (safe)
 
