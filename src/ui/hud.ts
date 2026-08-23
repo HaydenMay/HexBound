@@ -3,6 +3,7 @@ import { kindStats, type StructureInstance } from '../sim/structures'
 import type { PlaceError } from '../sim/types'
 import { STRUCTURE_DEFS, STRUCTURE_ORDER } from '../data/structures'
 import { ENEMY_DEFS } from '../data/enemies'
+import { Enemy } from '../sim/enemy'
 
 export interface Controls {
   speed: number
@@ -13,6 +14,10 @@ const WARN_TEXT: Record<PlaceError, string> = {
   sealed: 'THE CIRCLE MUST REMAIN REACHABLE',
   unaffordable: 'NOT ENOUGH ESSENCE',
   blocked: 'CANNOT BUILD THERE'
+}
+
+function weaknessLabel(w: 'poison' | 'shock' | 'burst'): string {
+  return w.charAt(0).toUpperCase() + w.slice(1)
 }
 
 export class Hud {
@@ -35,10 +40,17 @@ export class Hud {
   private inspectBodyEl: HTMLElement
   private inspectTitleEl: HTMLElement
   private placeHintEl: HTMLElement
+  private enemyInspectEl: HTMLElement
+  private enemyBodyEl: HTMLElement
+  private enemyTitleEl: HTMLElement
+  private bossIntroEl: HTMLElement
 
   private selectedStructure: StructureInstance | null = null
+  private selectedEnemyId: number | null = null
   private previewKey = ''
   private inspectKey = ''
+  private enemyKey = ''
+  private introTimer = 0
 
   private cache = { essence: -1, wave: '', progress: -1, stability: -1, phase: '' }
 
@@ -63,6 +75,11 @@ export class Hud {
     this.inspectBodyEl = this.require('#inspect-body')
     this.inspectTitleEl = this.require('#inspect-title')
     this.placeHintEl = this.require('#placehint')
+    this.enemyInspectEl = this.require('#enemy-inspect')
+    this.enemyBodyEl = this.require('#enemy-body')
+    this.enemyTitleEl = this.require('#enemy-title')
+    this.bossIntroEl = this.require('#bossintro')
+    this.require('#enemy-close').addEventListener('click', () => this.showEnemy(null))
 
     const stabWrap = this.require('#stability')
     this.stabilityEl = []
@@ -150,6 +167,52 @@ export class Hud {
     this.renderInspect()
   }
 
+  showEnemy(enemy: Enemy | null): void {
+    this.selectedEnemyId = enemy ? enemy.id : null
+    this.enemyKey = ''
+    if (!enemy) {
+      this.enemyInspectEl.classList.add('hidden')
+      return
+    }
+    this.enemyInspectEl.classList.remove('hidden')
+    this.renderEnemyInspect()
+  }
+
+  private renderEnemyInspect(): void {
+    const live = this.game.enemies.find(e => e.id === this.selectedEnemyId)
+    if (!live) {
+      this.showEnemy(null)
+      return
+    }
+    const key = `${live.id}:${Math.ceil(live.hp)}`
+    if (key === this.enemyKey) return
+    this.enemyKey = key
+    this.enemyTitleEl.textContent = live.def.name
+    const tags: string[] = []
+    if ((live.def.curseResist ?? 0) >= 0.5) tags.push('curse-proof')
+    if (live.def.charmImmune) tags.push('uncharmable')
+    if (live.def.silence) tags.push('silencer')
+    if (live.def.cleanse) tags.push('cleanser')
+    if (live.def.summon) tags.push('summoner')
+    if (live.def.structureDamage) tags.push('wallbreaker')
+    const weakness = this.game.scouted.has(live.def.id)
+      ? `Weak: ${weaknessLabel(live.def.weakness ?? 'poison')}`
+      : 'Weakness: ??? — scout with the Watching Eye'
+    this.enemyBodyEl.innerHTML = `
+      <div class="inspect-hp">Vitality: <span>${Math.max(Math.ceil(live.hp), 0)} / ${live.def.hp}</span></div>
+      ${tags.length ? `<div class="tag-row">${tags.map(t => `<span class="tag-chip">${t}</span>`).join('')}</div>` : ''}
+      <div class="enemy-weakness">${weakness}</div>`
+  }
+
+  showIntro(title: string, lines: string[]): void {
+    this.bossIntroEl.innerHTML = `<div class="intro-title">${title}</div>${lines
+      .map(l => `<div class="intro-line">${l}</div>`)
+      .join('')}`
+    this.bossIntroEl.classList.add('show')
+    window.clearTimeout(this.introTimer)
+    this.introTimer = window.setTimeout(() => this.bossIntroEl.classList.remove('show'), 5000)
+  }
+
   private renderInspect(): void {
     const inst = this.selectedStructure
     if (!inst) return
@@ -235,6 +298,19 @@ export class Hud {
             : `${this.game.allies.length} sprite(s) ready`
       }
     }
+    const sellBtn = this.inspectBodyEl.querySelector<HTMLButtonElement>('#sell-btn')
+    if (sellBtn) {
+      const locked = this.game.phase !== 'building'
+      sellBtn.disabled = locked
+      const desc = sellBtn.querySelector('.up-desc')
+      if (desc) {
+        desc.textContent = locked
+          ? 'The circle is sealed while foes march'
+          : inst.contributed
+            ? 'It has served — partial return'
+            : 'Untouched — full return'
+      }
+    }
   }
 
   warn(reason: PlaceError): void {
@@ -281,7 +357,8 @@ export class Hud {
       for (const [id, card] of this.paletteCards) {
         card.classList.toggle('poor', essence < STRUCTURE_DEFS[id].cost)
       }
-      if (this.selectedStructure) this.renderInspect()
+    if (this.selectedStructure) this.renderInspect()
+    if (this.selectedEnemyId !== null) this.renderEnemyInspect()
     }
 
     const waveText =

@@ -35,7 +35,7 @@ test('boots with zero console or page errors and full HUD visible', async ({ pag
   await boot(page)
 
   await expect(page.locator('#overlay')).toBeHidden()
-  await expect(page.locator('#palette .card')).toHaveCount(8)
+  await expect(page.locator('#palette .card')).toHaveCount(9)
   await expect(page.locator('#startwave')).toBeInViewport()
   await expect(page.locator('#pause')).toBeInViewport()
 

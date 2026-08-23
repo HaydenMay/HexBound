@@ -14,11 +14,11 @@ test('all tower cards are clickable at every media size', async ({ page }) => {
   await expect(page.locator('#menu')).toBeHidden()
 
   const cards = page.locator('#palette .card')
-  await expect(cards).toHaveCount(8)
+  await expect(cards).toHaveCount(9)
 
   for (const size of SIZES) {
     await page.setViewportSize({ width: size.width, height: size.height })
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 9; i++) {
       const card = cards.nth(i)
       await card.scrollIntoViewIfNeeded()
       await card.click()

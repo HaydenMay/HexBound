@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { Game, type LightningPayload, type NovaPayload } from '../sim/game'
+import { Enemy } from '../sim/enemy'
 import { currentTier, type StructureInstance } from '../sim/structures'
 import { HEX_SIZE, hexToWorld, lerpHexToWorld, worldToHex, type HexCoord, type WorldPos } from '../sim/hex'
 import type { KindStats } from '../sim/types'
@@ -23,7 +24,7 @@ export interface InputState {
 export type TapSource = 'mouse' | 'touch'
 
 export class Renderer {
-  onTap: ((hex: HexCoord, source: TapSource) => void) | null = null
+  onTap: ((hex: HexCoord, source: TapSource, enemy: Enemy | null) => void) | null = null
 
   private webgl: THREE.WebGLRenderer
   private scene = new THREE.Scene()
@@ -427,6 +428,21 @@ export class Renderer {
         clothPivot.rotation.y = Math.sin(t * 3.1) * 0.7
         glassMat.opacity = 0.48 + Math.sin(t * 2.3) * 0.12
       })
+    } else if (kind === 'eye') {
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2
+        const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.13), std(0x5a5262))
+        stone.position.set(Math.cos(a) * 0.62, 0.1, Math.sin(a) * 0.62)
+        stone.rotation.set(i * 1.3, i * 0.7, 0)
+        g.add(stone)
+      }
+      const iris = new THREE.Mesh(new THREE.OctahedronGeometry(0.24), std(0x4a3a20, 0xd8a040, 2.4))
+      iris.position.y = 0.95
+      g.add(iris)
+      addTick((t, dt) => {
+        iris.position.y = 0.95 + Math.sin(t * 1.8) * 0.09
+        iris.rotation.y += dt * 0.9
+      })
     } else if (kind === 'ring') {
       const caps: THREE.Mesh[] = []
       for (let i = 0; i < 5; i++) {
@@ -662,13 +678,32 @@ export class Renderer {
     slot.life = 1
   }
 
-  private pickHex(clientX: number, clientY: number): HexCoord | null {
+  private pickWorld(clientX: number, clientY: number): THREE.Vector3 | null {
     const rect = this.canvas.getBoundingClientRect()
     this.hoverNdc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1)
     this.raycaster.setFromCamera(this.hoverNdc, this.camera)
     const hit = new THREE.Vector3()
     if (!this.raycaster.ray.intersectPlane(this.plane, hit)) return null
-    return worldToHex(hit.x, hit.z)
+    return hit
+  }
+
+  private pickHex(clientX: number, clientY: number): HexCoord | null {
+    const at = this.pickWorld(clientX, clientY)
+    return at ? worldToHex(at.x, at.z) : null
+  }
+
+  private pickEnemy(at: THREE.Vector3): Enemy | null {
+    let best: Enemy | null = null
+    let bestDist = Infinity
+    for (const e of this.game.enemies) {
+      const p = lerpHexToWorld(e.cur, e.next, e.t)
+      const d = Math.hypot(p.x - at.x, p.z - at.z)
+      if (d <= 0.9 + 0.15 * e.def.scale && d < bestDist) {
+        best = e
+        bestDist = d
+      }
+    }
+    return best
   }
 
   private worldPerPixel(): number {
@@ -740,9 +775,9 @@ export class Renderer {
       this.activePointers.delete(e.pointerId)
       if (this.activePointers.size < 2) this.pinchDist = 0
       if (allowTap && !this.panning && this.activePointers.size === 0) {
-        const hex = this.pickHex(e.clientX, e.clientY)
+        const at = this.pickWorld(e.clientX, e.clientY)
         const source: TapSource = e.pointerType === 'touch' ? 'touch' : 'mouse'
-        if (hex && this.onTap) this.onTap(hex, source)
+        if (at && this.onTap) this.onTap(worldToHex(at.x, at.z), source, this.pickEnemy(at))
       }
       if (this.activePointers.size === 0) {
         this.panning = false

@@ -337,6 +337,93 @@
         line-height: 1.45;
         margin-bottom: 10px;
       }
+      #enemy-inspect {
+        position: fixed;
+        left: 16px;
+        top: 72px;
+        width: 240px;
+        background: var(--panel);
+        border: 1px solid rgba(216, 160, 64, 0.4);
+        border-radius: 14px;
+        padding: 14px;
+        pointer-events: auto;
+        backdrop-filter: blur(4px);
+      }
+      #enemy-inspect.hidden {
+        display: none;
+      }
+      #enemy-title {
+        font-size: 15px;
+        font-weight: 800;
+        margin: 0 0 8px;
+        padding-right: 20px;
+      }
+      #enemy-close {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 10px;
+      }
+      .tag-chip {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: rgba(255, 90, 90, 0.12);
+        border: 1px solid rgba(255, 90, 90, 0.45);
+        color: #ff9a8a;
+        white-space: nowrap;
+      }
+      .enemy-weakness {
+        font-size: 12px;
+        color: var(--teal);
+        font-weight: 600;
+      }
+      #bossintro {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -110%);
+        min-width: min(480px, 92vw);
+        max-width: 92vw;
+        text-align: center;
+        background: linear-gradient(to bottom, rgba(58, 24, 24, 0.95), rgba(21, 14, 36, 0.92));
+        border: 1px solid rgba(255, 90, 90, 0.5);
+        border-top: none;
+        border-radius: 0 0 14px 14px;
+        padding: 12px 22px 14px;
+        z-index: 5;
+        transition: transform 0.35s ease;
+        pointer-events: none;
+      }
+      #bossintro.show {
+        transform: translate(-50%, 0);
+      }
+      .intro-title {
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.14em;
+        color: var(--danger);
+      }
+      .intro-line {
+        font-size: 12px;
+        color: var(--text);
+        margin-top: 4px;
+        line-height: 1.4;
+      }
       .inspect-hp {
         font-size: 12px;
         margin-bottom: 10px;
@@ -642,6 +729,21 @@
           max-height: 38vh;
           overflow-y: auto;
         }
+        #enemy-inspect {
+          left: 12px;
+          right: 12px;
+          width: auto;
+          top: auto;
+          bottom: 232px;
+          max-height: 32vh;
+          overflow-y: auto;
+        }
+        .intro-title {
+          font-size: 14px;
+        }
+        .intro-line {
+          font-size: 11px;
+        }
         #banner {
           font-size: 15px;
           top: 13%;
@@ -669,6 +771,7 @@
         </div>
       </div>
       <div id="banner"></div>
+      <div id="bossintro"></div>
       <div id="bottombar">
         <div id="wavepreview"></div>
         <button id="placehint" class="hidden"></button>
@@ -695,6 +798,11 @@
       <button id="inspect-close">&times;</button>
       <h3 id="inspect-title"></h3>
       <div id="inspect-body"></div>
+    </div>
+    <div id="enemy-inspect" class="hidden">
+      <button id="enemy-close">&times;</button>
+      <h3 id="enemy-title"></h3>
+      <div id="enemy-body"></div>
     </div>
     <div id="vignette"></div>
     <div id="overlay" class="hidden">

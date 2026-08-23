@@ -1,4 +1,5 @@
 import { Game } from './sim/game'
+import type { Enemy } from './sim/enemy'
 import type { GameConfig } from './sim/types'
 import type { HexCoord } from './sim/hex'
 import type { InputState } from './render/renderer'
@@ -94,11 +95,20 @@ try {
       renderer.refreshSelection()
     })
 
-    renderer.onTap = (hex, source) => {
+    renderer.onTap = (hex, source, enemy) => {
+      if (enemy) {
+        input.pendingHex = null
+        hud.setPending(null)
+        hud.showStructure(null)
+        renderer.setSelected(null)
+        hud.showEnemy(enemy)
+        return
+      }
       const inst = game.structureAt(hex)
       if (inst) {
         input.pendingHex = null
         hud.setPending(null)
+        hud.showEnemy(null)
         hud.showStructure(inst)
         renderer.setSelected(inst)
         return
@@ -126,8 +136,19 @@ try {
       input.pendingHex = null
       hud.setPending(null)
       hud.showStructure(null)
+      hud.showEnemy(null)
       renderer.setSelected(null)
     }
+
+    const seenIntro = new Set<string>()
+    game.events.on<Enemy>('enemySpawned', e => {
+      const intro = e.def.intro
+      if (!intro) return
+      if (e.def.boss || !seenIntro.has(e.def.id)) {
+        hud.showIntro(intro.title, intro.lines)
+        seenIntro.add(e.def.id)
+      }
+    })
 
     window.addEventListener('keydown', e => {
       const idx = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'].indexOf(e.code)
@@ -137,6 +158,7 @@ try {
         hud.setPending(null)
         hud.selectDef(null)
         hud.showStructure(null)
+        hud.showEnemy(null)
         renderer.setSelected(null)
       } else if (e.code === 'KeyP') controls.paused = !controls.paused
       else if (e.code === 'Space') {
