@@ -56,7 +56,8 @@
       "env": {
         "GODOT_PATH": "/path/to/godot",
         "DEBUG": "true"
-      }
+      },
+      "enabled": true
     }
   }
 }
