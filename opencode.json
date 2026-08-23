@@ -17,6 +17,9 @@
       "npx *": "allow",
       "ls *": "allow",
       "cat *": "allow",
+      "Get-*": "allow",
+      "Test-*": "allow",
+      "$env*": "allow",
       "rm -rf *": "deny",
       "sudo *": "deny",
       "*": "ask"
@@ -54,7 +57,7 @@
       "command": "npx",
       "args": ["@coding-solo/godot-mcp"],
       "env": {
-        "GODOT_PATH": "/path/to/godot",
+        "GODOT_PATH": "C:\\Users\\mayha\\Documents\\Godot\\Godot_v4.6.1-stable_win64_console.exe",
         "DEBUG": "true"
       },
       "enabled": true
