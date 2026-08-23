@@ -9,20 +9,20 @@
 - ✅ **16 Sim core** — hex/grid/flowfield/emitter/enemy/ally/structure ops/game loop ported; **GUT 56/56 green headless (1905 asserts) · vitest 53/53 green** (`a4aea62`)
 - ✅ **17 Renderer** — p1 battle view (`7c1e4f7`): hex diorama field, spire ridge, two-tone lights + violet fog, procedural meshes for all 9 towers w/ idle residents, poison-tinted enemy capsules, ritual pulse + breach flash. p2 (`a0fccae`): multimesh path-flow arrows, TS-parity camera blend (building↔battle smoothstep, aspect-aware dist clamp 12–34), ambient fill + ground disc
 - ✅ **18 Input & camera** (`2f50f96`) — raycast pick/tap/select, mouse drag + WASD pan, wheel/pinch zoom, touch two-tap confirm, right-click + Escape cancel, digit palette keys, P/Space; ghost placement preview w/ valid/invalid tint + selection ring; **GUT 61/61 green**
+- ✅ **19 HUD** (`90fec36`) — 9-card palette (affordability + selection), topbar essence/wave/ritual/stability, wave preview chips, start/pause/speed, structure inspect (upgrades/forks/sacrifice/dismantle w/ sell lock), scout-gated enemy inspect, boss intro, banners, breach vignette + procedural audio, end overlay
+- ✅ **20 Saves & menu** (`5b23967`) — `user://` JSON save (schema v1, corrupt-safe, TS-compatible), field-size pref file, menu-first boot with level locks + size picker + reset, `FieldSize.apply` JS-rounding port, abandon-to-menu
+- ✅ **21 Parity sweep** (`9bcf40f`) — design.md walked § by § (sim parity already test-backed); screenshot harness `--shot=desktop|mobile` mirrors the TS SHOTS composition; desktop 1280×800 + mobile 412×915 shots judged vs `docs/screenshots/` baseline; fixed: ridge side (was in front of field), TS-parity ritual pedestal/ring/orb (progress scale + bob), tile state tinting (structure/penalty/entrance) on fieldChanged, emissive grove briars, red pips, green essence, def-color bitshift, card height, narrow-viewport controls row. **GUT 74/74**
 
 Critic round (fresh-context judge ran both suites) passed after fixes in `d821172`: stable-order tie-breaks for spawn + totem sorts (wave 4 has an exact t=8 tie), TS-falsy semantics for spreadRadius/frenzyPerSec, JS Math.round parity in cube rounding.
 
-**→ Resume at item 19 (HUD Control nodes). Godot MCP verified loaded (4.6.1.stable responds).**
+**→ Resume at item 22 (flip CI/deploy). Godot MCP verified loaded (4.6.1.stable responds).**
 
 ## Locked decisions
 
 GDScript (not C# — no web export) · single-threaded Web export · side-by-side under `godot/` while TS stays live on Pages · parity before visuals · engine console exe at `C:\Users\mayha\Documents\Godot\`.
 
-## Remaining — Godot migration items 19–22
+## Remaining — Godot migration item 22
 
-19. **HUD Control nodes** — palette (9 cards), topbar ritual/stability, wave/speed/pause, structure + enemy inspect panels (scout-gated weakness row), boss-intro banner, breach vignette + audio hook.
-20. **Saves & menu** — `user://` JSON saves compatible with current schema, level select with locks, campaign map-size picker.
-21. **Parity sweep** — design.md walked § by § against the running game; screenshots (desktop 1280x800 + mobile portrait) judged side-by-side against `docs/screenshots/` baseline; fix every gap named.
 22. **Flip CI/deploy** — Actions: `godot --headless` import + GUT gate + `--export-release "Web"` → Pages artifact under `/HexBound/`; verify live URL on iPhone once; TS stack archived to `legacy-ts`; rewrite AGENTS.md commands/layout/gotchas for Godot; update README/TOWERS/VISUAL_NOTES pointers.
 
 ### Migration definition of done
